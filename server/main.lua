@@ -69,8 +69,8 @@ RegisterNetEvent('mu-licenseplate:server:GetMyPlates', function()
         'SELECT mu_plate, plate_type, assigned_vehicle, purchased_price FROM mu_custom_plates WHERE citizenid = ?',
         { Player.PlayerData.citizenid }
     )
-    local balance = Player.Functions.GetMoney(Config.PaymentType) or 0
-    TriggerClientEvent('mu-licenseplate:client:ShowMyPlates', src, plates, balance)
+    -- Balance is read client-side from QBCore.Functions.GetPlayerData() for accuracy
+    TriggerClientEvent('mu-licenseplate:client:ShowMyPlates', src, plates)
 end)
 
 -- ─── PURCHASE — TIER 1  (AA 0000) ────────────────────────────────────────────
@@ -232,12 +232,10 @@ RegisterNetEvent('mu-licenseplate:server:SellPlate', function(muPlate)
     if refund > 0 then AddMoney(Player, refund, 'plate-sale-refund') end
 
     Notify(src, 'Plate ' .. muPlate .. ' sold. Refund: $' .. refund, 'success')
-    -- Trigger a plate list refresh in the NUI (re-read Player to get updated balance)
-    Player = QBCore.Functions.GetPlayer(src)
+    -- Refresh plate list in NUI; balance is read client-side automatically
     local plates = MySQL.query.await(
         'SELECT mu_plate, plate_type, assigned_vehicle, purchased_price FROM mu_custom_plates WHERE citizenid = ?',
         { citizenid }
     )
-    local newBalance = (Player and Player.Functions.GetMoney(Config.PaymentType)) or 0
-    TriggerClientEvent('mu-licenseplate:client:ShowMyPlates', src, plates, newBalance)
+    TriggerClientEvent('mu-licenseplate:client:ShowMyPlates', src, plates)
 end)

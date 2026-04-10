@@ -21,7 +21,10 @@ const VALIDATORS = {
 window.addEventListener('message', ({ data }) => {
   switch (data.action) {
     case 'open':
-      openUI(data.vehiclePlate, data.tier3Prices || {});
+      openUI(data.vehiclePlate, data.tier3Prices || {}, data.balance);
+      break;
+    case 'setBalance':
+      setBalance(data.balance);
       break;
     case 'showPlates':
       if (typeof data.balance === 'number') setBalance(data.balance);
@@ -35,15 +38,22 @@ window.addEventListener('message', ({ data }) => {
       nuiFetch('getPlates', {});
       showTab('myplates');
       break;
+    case 'forceClose':
+      // Lua already released NUI focus — just hide the UI without calling back
+      isOpen = false;
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('purchaseModal').classList.add('hidden');
+      break;
   }
 });
 
 // ── Open / close ────────────────────────────────────────────
 let isOpen = false;
 
-function openUI(vehiclePlate, prices) {
+function openUI(vehiclePlate, prices, initialBalance) {
   tier3Prices = prices;
   currentVehiclePlate = vehiclePlate || null;
+  if (typeof initialBalance === 'number') setBalance(initialBalance);
 
   document.getElementById('barPlate').textContent =
     currentVehiclePlate || '— not in vehicle —';
@@ -85,6 +95,8 @@ function closeUI() {
 
 document.getElementById('closeBtn').addEventListener('click', closeUI);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeUI(); });
+// Click on the dark backdrop (outside the panel) also closes
+document.getElementById('app').addEventListener('click', e => { if (e.target === document.getElementById('app')) closeUI(); });
 
 // ── Tabs ────────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(btn => {

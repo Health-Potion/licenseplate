@@ -4,10 +4,8 @@
 
     Behaviour
     ─────────────────────────────────────────────────────────────
-    • Every vehicle gets a deterministic MU plate derived from its
-      GTA native plate (same car = same plate, no DB, no network).
-    • If the vehicle has a custom plate assigned in the DB, the server
-      pushes it to overwrite the seed plate.
+    • Vehicle plate is left untouched unless a custom plate is assigned in DB.
+    • If the vehicle has a custom plate assigned, the server pushes it on entry.
     • The player MANUALLY manages plates with /plate → custom NUI.
       They can view, apply, purchase and sell plates from that HUD.
 --]]
@@ -22,6 +20,26 @@ local nuiOpen        = false
 local function Notify(msg, ntype)
     QBCore.Functions.Notify(msg, ntype or 'primary', 4000)
 end
+
+-- ─── balance helper (client-side, always current) ────────────────────────────
+
+local function GetBalance()
+    local PlayerData = QBCore.Functions.GetPlayerData()
+    local money = PlayerData.money
+    if type(money) == 'string' then money = json.decode(money) end
+    return (type(money) == 'table' and tonumber(money[Config.PaymentType])) or 0
+end
+
+local function PushBalance()
+    if nuiOpen then
+        SendNUIMessage({ action = 'setBalance', balance = GetBalance() })
+    end
+end
+
+-- Push updated balance to NUI whenever QBCore updates player data (e.g. after purchase)
+AddEventHandler('QBCore:Client:SetPlayerData', function()
+    PushBalance()
+end)
 
 -- ─── 3-D text helper ─────────────────────────────────────────────────────────
 
@@ -50,8 +68,6 @@ local function ApplyPlate(vehicle, plateText)
 end
 
 -- ─── vehicle tracking thread ──────────────────────────────────────────────────
--- Step 1: instantly apply a deterministic MU plate from the GTA native plate.
--- Step 2: ask the server if a custom plate is assigned — it will overwrite if so.
 
 CreateThread(function()
     while true do
@@ -74,7 +90,7 @@ CreateThread(function()
     end
 end)
 
--- Server sends back a custom plate → apply it over the seed plate
+-- Server sends back a custom plate → apply it over the GTA plate
 RegisterNetEvent('mu-licenseplate:client:ApplyPlate', function(muPlate)
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
@@ -133,38 +149,56 @@ function OpenPlateUI()
     nuiOpen = true
     SetNuiFocus(true, true)
     SendNUIMessage({
-        action      = 'open',
+        action       = 'open',
         vehiclePlate = vPlate,
         tier3Prices  = Config.Prices.tier3,
+        balance      = GetBalance(),   -- send balance immediately on open
     })
 end
 
 local function ClosePlateUI()
     nuiOpen = false
     SetNuiFocus(false, false)
-    -- Belt-and-suspenders: release focus again on next tick in case the first
-    -- call is dropped during a NUI callback frame.
     Citizen.SetTimeout(50, function() SetNuiFocus(false, false) end)
 end
 
+-- ─── Lua-side ESC fallback ────────────────────────────────────────────────────
+-- If the JS→Lua nuiFetch ever fails, this thread catches ESC and forces close.
+-- INPUT_FRONTEND_CANCEL (200) fires even while NUI has focus.
+
+CreateThread(function()
+    while true do
+        if nuiOpen then
+            Wait(0)
+            if IsDisabledControlJustReleased(0, 200) then
+                ClosePlateUI()
+                SendNUIMessage({ action = 'forceClose' })
+            end
+        else
+            Wait(300)
+        end
+    end
+end)
+
 -- ─── NUI callbacks ────────────────────────────────────────────────────────────
 
--- Close button / ESC
+-- Close button / ESC (from JS)
 RegisterNUICallback('closeUI', function(_, cb)
     ClosePlateUI()
     cb('ok')
 end)
 
--- NUI requests player's plates
+-- NUI requests player's plates; balance is now pushed from client side
 RegisterNUICallback('getPlates', function(_, cb)
     TriggerServerEvent('mu-licenseplate:server:GetMyPlates')
+    PushBalance()
     cb('ok')
 end)
 
--- Server responds with plates + balance → forward to NUI
-RegisterNetEvent('mu-licenseplate:client:ShowMyPlates', function(plates, balance)
+-- Server responds with plates → forward to NUI (balance handled separately)
+RegisterNetEvent('mu-licenseplate:client:ShowMyPlates', function(plates)
     if nuiOpen then
-        SendNUIMessage({ action = 'showPlates', plates = plates, balance = balance })
+        SendNUIMessage({ action = 'showPlates', plates = plates, balance = GetBalance() })
     end
 end)
 
@@ -228,7 +262,6 @@ RegisterNetEvent('mu-licenseplate:client:AssignSuccess', function(muPlate)
     end
     if nuiOpen then
         SendNUIMessage({ action = 'notify', msg = 'Plate ' .. muPlate .. ' applied!', ntype = 'success' })
-        -- Refresh list so assigned status updates
         TriggerServerEvent('mu-licenseplate:server:GetMyPlates')
     end
 end)
