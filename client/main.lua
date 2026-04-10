@@ -178,17 +178,17 @@ function OpenMainMenu()
         { header = '🇲🇺  NLTA — License Plate Office', isMenuHeader = true },
         {
             header = 'Tier 1 — 2 Letters + 4 Digits',
-            txt    = 'Example: AB1234  |  $' .. Config.Prices.tier1,
+            txt    = 'Example: ZW 1234  |  $' .. Config.Prices.tier1,
             params = { event = 'mu-licenseplate:client:OpenTier1' },
         },
         {
             header = 'Tier 2 — 3 Letters + 4 Digits',
-            txt    = 'Example: ABC1234  |  $' .. Config.Prices.tier2,
+            txt    = 'Example: ZIL 1234  |  $' .. Config.Prices.tier2,
             params = { event = 'mu-licenseplate:client:OpenTier2' },
         },
         {
-            header = 'Tier 3 — Full Letters / Name  (4–8 chars)',
-            txt    = 'Example: MAURITIUS  |  $50k – $200k depending on length',
+            header = 'Tier 3 — Full Name / Word  (3–8 letters)',
+            txt    = 'Example: ISMAIL or ZILWARE  |  $50k – $200k by length',
             params = { event = 'mu-licenseplate:client:OpenTier3' },
         },
         {
@@ -204,15 +204,15 @@ end
 
 RegisterNetEvent('mu-licenseplate:client:OpenTier1', function()
     local dialog = exports['qb-input']:ShowInput({
-        header     = 'Tier 1 — 2 Letters + 4 Digits',
+        header     = 'Tier 1 — AA 0000',
         submitText = 'Purchase  ($' .. Config.Prices.tier1 .. ')',
         inputs = {
             {
                 type        = 'text',
                 name        = 'plate',
-                label       = 'Plate  (e.g. AB1234)',
+                label       = '2 letters + 4 digits  (e.g. ZW 1234)',
                 required    = true,
-                placeholder = 'AB1234',
+                placeholder = 'ZW 1234',
             },
         },
     })
@@ -220,19 +220,19 @@ RegisterNetEvent('mu-licenseplate:client:OpenTier1', function()
     TriggerServerEvent('mu-licenseplate:server:PurchaseTier1', dialog.plate:upper())
 end)
 
--- ─── TIER 2  (3L + 4D) ───────────────────────────────────────────────────────
+-- ─── TIER 2  (AAA 0000) ──────────────────────────────────────────────────────
 
 RegisterNetEvent('mu-licenseplate:client:OpenTier2', function()
     local dialog = exports['qb-input']:ShowInput({
-        header     = 'Tier 2 — 3 Letters + 4 Digits',
+        header     = 'Tier 2 — AAA 0000',
         submitText = 'Purchase  ($' .. Config.Prices.tier2 .. ')',
         inputs = {
             {
                 type        = 'text',
                 name        = 'plate',
-                label       = 'Plate  (e.g. ABC1234)',
+                label       = '3 letters + 4 digits  (e.g. ZIL 1234)',
                 required    = true,
-                placeholder = 'ABC1234',
+                placeholder = 'ZIL 1234',
             },
         },
     })
@@ -240,19 +240,19 @@ RegisterNetEvent('mu-licenseplate:client:OpenTier2', function()
     TriggerServerEvent('mu-licenseplate:server:PurchaseTier2', dialog.plate:upper())
 end)
 
--- ─── TIER 3  (letters only, 4–8 chars, price by length) ─────────────────────
+-- ─── TIER 3  (letters only, 3–8 chars) ───────────────────────────────────────
 
 RegisterNetEvent('mu-licenseplate:client:OpenTier3', function()
     local dialog = exports['qb-input']:ShowInput({
-        header     = 'Tier 3 — Name / Vanity Plate',
+        header     = 'Tier 3 — Full Name / Word',
         submitText = 'Check Price & Purchase',
         inputs = {
             {
                 type        = 'text',
                 name        = 'plate',
-                label       = 'Plate name  (4–8 letters, e.g. MAURITIUS)',
+                label       = 'Letters only, 3–8 chars  (e.g. ISMAIL or ZILWARE)',
                 required    = true,
-                placeholder = 'MAURITIUS',
+                placeholder = 'ISMAIL',
             },
         },
     })
