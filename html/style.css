@@ -90,6 +90,9 @@ body {
   border-bottom: 1px solid #1e1e3a;
 }
 
+.bar-group { display: flex; align-items: center; gap: 10px; }
+.bar-group.right { justify-content: flex-end; }
+
 .bar-label { font-size: 11px; color: #5a5a7a; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .bar-plate {
@@ -101,6 +104,15 @@ body {
   padding: 3px 10px;
   border-radius: 5px;
   letter-spacing: 1px;
+}
+
+.bar-balance {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2ecc71;
+  background: #12221a;
+  padding: 3px 10px;
+  border-radius: 5px;
 }
 
 /* ── Tabs ──────────────────────────────────────────────────── */
@@ -312,7 +324,17 @@ body {
   color: #2ecc71;
   font-weight: 700;
   min-height: 18px;
+  text-align: center;
 }
+.modal-price-line.cannot-afford { color: #e74c3c; }
+.modal-price-line.invalid       { color: #f39c12; }
+
+.btn-confirm:disabled {
+  background: #2a2a4a;
+  color: #5a5a7a;
+  cursor: not-allowed;
+}
+.btn-confirm:disabled:hover { opacity: 1; }
 
 .modal-actions { display: flex; gap: 10px; width: 100%; }
 .modal-actions .btn { flex: 1; padding: 10px; font-size: 13px; }

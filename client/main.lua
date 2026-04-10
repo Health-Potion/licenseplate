@@ -161,10 +161,10 @@ RegisterNUICallback('getPlates', function(_, cb)
     cb('ok')
 end)
 
--- Server responds with plates → forward to NUI
-RegisterNetEvent('mu-licenseplate:client:ShowMyPlates', function(plates)
+-- Server responds with plates + balance → forward to NUI
+RegisterNetEvent('mu-licenseplate:client:ShowMyPlates', function(plates, balance)
     if nuiOpen then
-        SendNUIMessage({ action = 'showPlates', plates = plates })
+        SendNUIMessage({ action = 'showPlates', plates = plates, balance = balance })
     end
 end)
 

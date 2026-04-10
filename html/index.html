@@ -24,8 +24,14 @@
     </div>
 
     <div class="current-vehicle-bar" id="vehicleBar">
-      <span class="bar-label">Current vehicle plate</span>
-      <span class="bar-plate" id="barPlate">—</span>
+      <div class="bar-group">
+        <span class="bar-label">Current vehicle</span>
+        <span class="bar-plate" id="barPlate">—</span>
+      </div>
+      <div class="bar-group right">
+        <span class="bar-label">Balance</span>
+        <span class="bar-balance" id="barBalance">$0</span>
+      </div>
     </div>
 
     <div class="tabs">
@@ -50,23 +56,23 @@
 
         <div class="tier-card">
           <div class="tier-badge">Tier 1</div>
-          <div class="tier-format">AA 0000</div>
+          <div class="tier-format">AA 0–0000</div>
           <div class="plate-demo white">ZW 1234</div>
-          <div class="tier-desc">2 letters + 4 digits</div>
+          <div class="tier-desc">2 letters + 1–4 digits</div>
           <div class="tier-price">$25,000</div>
           <button class="btn btn-buy" data-tier="tier1" data-price="25000"
-                  data-hint="2 letters + 4 digits  (e.g. ZW 1234)"
+                  data-hint="2 letters + 1–4 digits  (e.g. ZW 1234 or ZW 12)"
                   data-placeholder="ZW 1234">Buy</button>
         </div>
 
         <div class="tier-card">
           <div class="tier-badge">Tier 2</div>
-          <div class="tier-format">AAA 0000</div>
+          <div class="tier-format">AAA 0–0000</div>
           <div class="plate-demo white">ZIL 1234</div>
-          <div class="tier-desc">3 letters + 4 digits</div>
+          <div class="tier-desc">3 letters + 1–4 digits</div>
           <div class="tier-price">$50,000</div>
           <button class="btn btn-buy" data-tier="tier2" data-price="50000"
-                  data-hint="3 letters + 4 digits  (e.g. ZIL 1234)"
+                  data-hint="3 letters + 1–4 digits  (e.g. ZIL 1234 or ZIL 7)"
                   data-placeholder="ZIL 1234">Buy</button>
         </div>
 

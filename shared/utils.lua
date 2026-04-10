@@ -62,40 +62,37 @@ end
 -- ─── custom plate validation ─────────────────────────────────────────────────
 
 --[[
-    Tier 1 — AA 0000  (2 uppercase letters + space + 4 digits)
-    Example: ZW 1234  (7 chars)
+    Tier 1 — 2 letters + 1–4 digits
+    Examples: ZW 1, ZW 12, ZW 123, ZW 1234
     Returns: ok, err, displayPlate
 --]]
 function MauPlate.ValidateTier1(rawPlate)
-    local plate = trim(rawPlate:upper())
-
-    -- Accept with or without space; normalise to "LL DDDD"
+    local plate   = trim(rawPlate:upper())
     local noSpace = plate:gsub('%s+', '')
-    local letters, digits = noSpace:match('^([A-Z][A-Z])(%d%d%d%d)$')
 
-    if not letters or not digits then
-        return false, 'Invalid format. Expected 2 letters + 4 digits  (e.g. ZW 1234)', nil
+    local letters, digits = noSpace:match('^([A-Z][A-Z])(%d%d?%d?%d?)$')
+    if not letters or not digits or #digits < 1 then
+        return false, 'Invalid format. Expected 2 letters + 1–4 digits  (e.g. ZW 1234)', nil
     end
 
-    return true, nil, letters .. ' ' .. digits   -- "ZW 1234" = 7 chars
+    return true, nil, letters .. ' ' .. digits
 end
 
 --[[
-    Tier 2 — AAA 0000  (3 uppercase letters + space + 4 digits)
-    Example: ZIL 1234  (8 chars)
+    Tier 2 — 3 letters + 1–4 digits
+    Examples: ZIL 1, ZIL 12, ZIL 1234
     Returns: ok, err, displayPlate
 --]]
 function MauPlate.ValidateTier2(rawPlate)
-    local plate = trim(rawPlate:upper())
-
+    local plate   = trim(rawPlate:upper())
     local noSpace = plate:gsub('%s+', '')
-    local letters, digits = noSpace:match('^([A-Z][A-Z][A-Z])(%d%d%d%d)$')
 
-    if not letters or not digits then
-        return false, 'Invalid format. Expected 3 letters + 4 digits  (e.g. ZIL 1234)', nil
+    local letters, digits = noSpace:match('^([A-Z][A-Z][A-Z])(%d%d?%d?%d?)$')
+    if not letters or not digits or #digits < 1 then
+        return false, 'Invalid format. Expected 3 letters + 1–4 digits  (e.g. ZIL 1234)', nil
     end
 
-    return true, nil, letters .. ' ' .. digits   -- "ZIL 1234" = 8 chars
+    return true, nil, letters .. ' ' .. digits
 end
 
 --[[

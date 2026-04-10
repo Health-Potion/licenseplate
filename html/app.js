@@ -5,6 +5,17 @@ let currentVehiclePlate = null;   // GTA native plate of the vehicle player is i
 let myPlates            = [];
 let activeTier          = null;   // tier being purchased right now
 let tier3Prices         = {};     // length → price, sent from Lua config
+let balance             = 0;      // player's current bank/cash balance
+
+// ── Tier config (mirrors Lua) ───────────────────────────────
+const TIER_PRICES = { tier1: 25000, tier2: 50000 };
+
+// ── Validators (mirror shared/utils.lua) ────────────────────
+const VALIDATORS = {
+  tier1: v => /^[A-Z]{2}\s?\d{1,4}$/.test(v.replace(/\s+/g, ' ').trim()),
+  tier2: v => /^[A-Z]{3}\s?\d{1,4}$/.test(v.replace(/\s+/g, ' ').trim()),
+  tier3: v => /^[A-Z]{3,8}$/.test(v.replace(/\s+/g, '')),
+};
 
 // ── Lua → NUI messages ──────────────────────────────────────
 window.addEventListener('message', ({ data }) => {
@@ -13,6 +24,7 @@ window.addEventListener('message', ({ data }) => {
       openUI(data.vehiclePlate, data.tier3Prices || {});
       break;
     case 'showPlates':
+      if (typeof data.balance === 'number') setBalance(data.balance);
       renderPlates(data.plates || []);
       break;
     case 'notify':
@@ -39,7 +51,28 @@ function openUI(vehiclePlate, prices) {
   document.getElementById('app').classList.remove('hidden');
   isOpen = true;
   showTab('myplates');
-  nuiFetch('getPlates', {});
+  nuiFetch('getPlates', {});   // server replies with plates + balance
+}
+
+function setBalance(amount) {
+  balance = Number(amount) || 0;
+  document.getElementById('barBalance').textContent = '$' + balance.toLocaleString();
+  updateTierCardAffordability();
+}
+
+// Dim tier cards the player cannot afford
+function updateTierCardAffordability() {
+  document.querySelectorAll('.btn-buy').forEach(btn => {
+    const tier = btn.dataset.tier;
+    let minPrice = TIER_PRICES[tier];
+    if (tier === 'tier3') {
+      // cheapest tier 3 option (shortest length)
+      minPrice = Math.min(...Object.values(tier3Prices).map(Number)) || 50000;
+    }
+    const poor = balance < minPrice;
+    btn.disabled = poor;
+    btn.textContent = poor ? 'Not enough $' : 'Buy';
+  });
 }
 
 function closeUI() {
@@ -140,31 +173,74 @@ function openPurchaseModal(tier, basePrice, hint, placeholder) {
   activeTier = tier;
 
   document.getElementById('modalTitle').textContent =
-    { tier1: 'Tier 1 — AA 0000', tier2: 'Tier 2 — AAA 0000', tier3: 'Tier 3 — Name / Word' }[tier];
+    { tier1: 'Tier 1 — 2 Letters + Digits',
+      tier2: 'Tier 2 — 3 Letters + Digits',
+      tier3: 'Tier 3 — Name / Word' }[tier];
   document.getElementById('modalHint').textContent = hint;
 
   const input = document.getElementById('plateInput');
   input.value = '';
   input.placeholder = placeholder;
-  input.focus();
+  setTimeout(() => input.focus(), 50);
 
   document.getElementById('platePreview').textContent = '——';
-  document.getElementById('modalPriceLine').textContent = '';
+  updateModalValidation('');
   document.getElementById('purchaseModal').classList.remove('hidden');
 }
 
-// Live preview
+// Live preview + validation + affordability
 document.getElementById('plateInput').addEventListener('input', function () {
   const val = this.value.toUpperCase();
   this.value = val;
   document.getElementById('platePreview').textContent = val || '——';
-
-  if (activeTier === 'tier3') {
-    const price = tier3Prices[val.replace(/\s/g,'').length];
-    document.getElementById('modalPriceLine').textContent =
-      price ? `Price: $${Number(price).toLocaleString()}` : '';
-  }
+  updateModalValidation(val);
 });
+
+function updateModalValidation(val) {
+  const line    = document.getElementById('modalPriceLine');
+  const confirm = document.getElementById('modalConfirm');
+  line.className = 'modal-price-line';
+
+  if (!val) {
+    line.textContent = '';
+    confirm.disabled = true;
+    return;
+  }
+
+  // Format check
+  if (!VALIDATORS[activeTier](val)) {
+    line.textContent = 'Invalid format';
+    line.classList.add('invalid');
+    confirm.disabled = true;
+    return;
+  }
+
+  // Price lookup
+  let price;
+  if (activeTier === 'tier3') {
+    price = tier3Prices[val.replace(/\s/g, '').length];
+  } else {
+    price = TIER_PRICES[activeTier];
+  }
+
+  if (!price) {
+    line.textContent = 'Invalid length';
+    line.classList.add('invalid');
+    confirm.disabled = true;
+    return;
+  }
+
+  // Affordability
+  if (balance < price) {
+    line.textContent = `Price: $${price.toLocaleString()} — not enough funds ($${balance.toLocaleString()})`;
+    line.classList.add('cannot-afford');
+    confirm.disabled = true;
+    return;
+  }
+
+  line.textContent = `Price: $${price.toLocaleString()}`;
+  confirm.disabled = false;
+}
 
 document.getElementById('modalCancel').addEventListener('click', () => {
   document.getElementById('purchaseModal').classList.add('hidden');

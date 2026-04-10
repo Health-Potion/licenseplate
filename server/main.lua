@@ -57,6 +57,8 @@ RegisterNetEvent('mu-licenseplate:server:GetVehiclePlate', function(vehiclePlate
 end)
 
 -- ─── GET MY PLATES (for NUI) ──────────────────────────────────────────────────
+-- Sends both the player's plate list and their current balance so the NUI
+-- can disable purchase buttons for plates they can't afford.
 
 RegisterNetEvent('mu-licenseplate:server:GetMyPlates', function()
     local src    = source
@@ -67,7 +69,8 @@ RegisterNetEvent('mu-licenseplate:server:GetMyPlates', function()
         'SELECT mu_plate, plate_type, assigned_vehicle, purchased_price FROM mu_custom_plates WHERE citizenid = ?',
         { Player.PlayerData.citizenid }
     )
-    TriggerClientEvent('mu-licenseplate:client:ShowMyPlates', src, plates)
+    local balance = Player.PlayerData.money[Config.PaymentType] or 0
+    TriggerClientEvent('mu-licenseplate:client:ShowMyPlates', src, plates, balance)
 end)
 
 -- ─── PURCHASE — TIER 1  (AA 0000) ────────────────────────────────────────────
