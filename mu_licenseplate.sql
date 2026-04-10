@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `mu_custom_plates` (
     `id`               INT UNSIGNED    NOT NULL AUTO_INCREMENT,
     `citizenid`        VARCHAR(50)     NOT NULL,
     `mu_plate`         VARCHAR(10)     NOT NULL,
-    `plate_type`       ENUM('custom_old','custom_new') NOT NULL,
+    `plate_type`       ENUM('tier1','tier2','tier3') NOT NULL,
     `assigned_vehicle` VARCHAR(15)     DEFAULT NULL,
     `purchased_price`  INT UNSIGNED    NOT NULL DEFAULT 0,
     `created_at`       TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,

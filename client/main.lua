@@ -45,9 +45,11 @@ end
 -- ─── plate application ───────────────────────────────────────────────────────
 
 local function ApplyPlate(vehicle, plateText)
-    if DoesEntityExist(vehicle) then
-        SetVehicleNumberPlateText(vehicle, MauPlate.FormatForGTA(plateText))
-    end
+    if not DoesEntityExist(vehicle) then return end
+    SetVehicleNumberPlateText(vehicle, MauPlate.FormatForGTA(plateText))
+    -- Style 0 = blue-on-white (closest built-in to MU white bg + black text).
+    -- True white front / yellow rear requires a stream texture replacement.
+    SetVehicleNumberPlateTextIndex(vehicle, Config.PlateStyle)
 end
 
 -- ─── world vehicle stamp thread ──────────────────────────────────────────────
@@ -159,106 +161,103 @@ function OpenMainMenu()
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
 
-    local items = {
+    local assignItem = {
+        header = 'Assign Plate to Vehicle',
+        txt    = 'Switch which custom plate is displayed on your current vehicle',
+        params = { event = 'mu-licenseplate:client:OpenAssign' },
+    }
+    if vehicle == 0 then
+        assignItem = {
+            header = 'Assign Plate  (enter a vehicle first)',
+            txt    = '',
+            params = { event = 'mu-licenseplate:client:NoVehicle' },
+        }
+    end
+
+    exports['qb-menu']:openMenu({
+        { header = '🇲🇺  NLTA — License Plate Office', isMenuHeader = true },
         {
-            header      = '🇲🇺  NLTA — License Plate Office',
-            isMenuHeader = true,
+            header = 'Tier 1 — 2 Letters + 4 Digits',
+            txt    = 'Example: AB1234  |  $' .. Config.Prices.tier1,
+            params = { event = 'mu-licenseplate:client:OpenTier1' },
         },
         {
-            header = 'Old Series  (Specific Registration Mark)',
-            txt    = '1–2 letters + 1–4 numbers  |  Bank: $' .. Config.Prices.old_series,
-            params = { event = 'mu-licenseplate:client:OpenOldSeries' },
+            header = 'Tier 2 — 3 Letters + 4 Digits',
+            txt    = 'Example: ABC1234  |  $' .. Config.Prices.tier2,
+            params = { event = 'mu-licenseplate:client:OpenTier2' },
         },
         {
-            header = 'New Series  (Extended Personalised)',
-            txt    = '3–6 letters + 3–4 numbers / custom name  |  From $' ..
-                     Config.Prices.new_series['3L4N'],
-            params = { event = 'mu-licenseplate:client:OpenNewSeries' },
+            header = 'Tier 3 — Full Letters / Name  (4–8 chars)',
+            txt    = 'Example: MAURITIUS  |  $50k – $200k depending on length',
+            params = { event = 'mu-licenseplate:client:OpenTier3' },
         },
         {
             header = 'My Plates',
             txt    = 'View all your purchased custom plates',
             params = { event = 'mu-licenseplate:client:ViewMyPlates' },
         },
-        {
-            header = 'Assign Plate to Vehicle',
-            txt    = 'Switch which custom plate is displayed on your current vehicle',
-            params = { event = 'mu-licenseplate:client:OpenAssign' },
-        },
-    }
-
-    if vehicle == 0 then
-        -- Disable assign option when not in a vehicle
-        items[5] = {
-            header = 'Assign Plate to Vehicle  (enter a vehicle first)',
-            txt    = '',
-            params = { event = 'mu-licenseplate:client:NoVehicle' },
-        }
-    end
-
-    exports['qb-menu']:openMenu(items)
+        assignItem,
+    })
 end
 
--- ─── OLD SERIES ───────────────────────────────────────────────────────────────
+-- ─── TIER 1  (2L + 4D) ───────────────────────────────────────────────────────
 
-RegisterNetEvent('mu-licenseplate:client:OpenOldSeries', function()
+RegisterNetEvent('mu-licenseplate:client:OpenTier1', function()
     local dialog = exports['qb-input']:ShowInput({
-        header    = 'Old Series — Custom Plate',
-        submitText = 'Purchase  ($' .. Config.Prices.old_series .. ')',
-        inputs    = {
+        header     = 'Tier 1 — 2 Letters + 4 Digits',
+        submitText = 'Purchase  ($' .. Config.Prices.tier1 .. ')',
+        inputs = {
             {
                 type        = 'text',
                 name        = 'plate',
-                label       = 'Desired plate  (e.g.  AB 123)',
+                label       = 'Plate  (e.g. AB1234)',
                 required    = true,
-                placeholder = 'AB 123',
+                placeholder = 'AB1234',
             },
         },
     })
     if not dialog or not dialog.plate or dialog.plate == '' then return end
-
-    local plate = dialog.plate:upper()
-    TriggerServerEvent('mu-licenseplate:server:PurchaseOldSeries', plate)
+    TriggerServerEvent('mu-licenseplate:server:PurchaseTier1', dialog.plate:upper())
 end)
 
--- ─── NEW SERIES ───────────────────────────────────────────────────────────────
+-- ─── TIER 2  (3L + 4D) ───────────────────────────────────────────────────────
 
-RegisterNetEvent('mu-licenseplate:client:OpenNewSeries', function()
-    local items = {
-        { header = 'New Series — Choose Format', isMenuHeader = true },
-    }
-
-    for _, fmt in ipairs(Config.NewSeriesFormats) do
-        table.insert(items, {
-            header = fmt.label,
-            txt    = 'Example: ' .. fmt.example .. '  |  Bank: $' .. fmt.price,
-            params = {
-                event = 'mu-licenseplate:client:PromptNewPlate',
-                args  = { key = fmt.key, price = fmt.price, example = fmt.example },
-            },
-        })
-    end
-
-    exports['qb-menu']:openMenu(items)
-end)
-
-RegisterNetEvent('mu-licenseplate:client:PromptNewPlate', function(data)
+RegisterNetEvent('mu-licenseplate:client:OpenTier2', function()
     local dialog = exports['qb-input']:ShowInput({
-        header    = 'New Series — ' .. data.key,
-        submitText = 'Purchase  ($' .. data.price .. ')',
-        inputs    = {
+        header     = 'Tier 2 — 3 Letters + 4 Digits',
+        submitText = 'Purchase  ($' .. Config.Prices.tier2 .. ')',
+        inputs = {
             {
                 type        = 'text',
                 name        = 'plate',
-                label       = 'Desired plate  (e.g. ' .. data.example .. ')',
+                label       = 'Plate  (e.g. ABC1234)',
                 required    = true,
-                placeholder = data.example,
+                placeholder = 'ABC1234',
             },
         },
     })
     if not dialog or not dialog.plate or dialog.plate == '' then return end
+    TriggerServerEvent('mu-licenseplate:server:PurchaseTier2', dialog.plate:upper())
+end)
 
-    TriggerServerEvent('mu-licenseplate:server:PurchaseNewSeries', data.key, dialog.plate:upper())
+-- ─── TIER 3  (letters only, 4–8 chars, price by length) ─────────────────────
+
+RegisterNetEvent('mu-licenseplate:client:OpenTier3', function()
+    local dialog = exports['qb-input']:ShowInput({
+        header     = 'Tier 3 — Name / Vanity Plate',
+        submitText = 'Check Price & Purchase',
+        inputs = {
+            {
+                type        = 'text',
+                name        = 'plate',
+                label       = 'Plate name  (4–8 letters, e.g. MAURITIUS)',
+                required    = true,
+                placeholder = 'MAURITIUS',
+            },
+        },
+    })
+    if not dialog or not dialog.plate or dialog.plate == '' then return end
+    TriggerServerEvent('mu-licenseplate:server:PurchaseTier3', dialog.plate:upper())
 end)
 
 -- ─── MY PLATES ────────────────────────────────────────────────────────────────

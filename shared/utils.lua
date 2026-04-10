@@ -2,10 +2,16 @@
     shared/utils.lua
     Mauritius License Plate — shared utilities (loaded on both client & server)
 
-    Standard format  : XX NNNN   (2 letters + space + 4 digits)  → max 7 chars, fits GTA 8-char limit
-    Old-series custom: A–ZZ + 1–4 digits  (e.g. AB 123)
-    New-series custom: 3–6 letters + 3–4 digits (various), or name ≤8 chars
-    Excluded letters : I, O, Q  (NLTA convention)
+    Standard format : NNNNMMYY
+        4 digits + 2-letter month code + 2-digit year  (8 chars, fits GTA limit)
+        Example: 1234OC22  =  October 2022
+
+    Custom tiers:
+        Tier 1 — 2 letters + 4 digits   e.g. AB1234        $25,000
+        Tier 2 — 3 letters + 4 digits   e.g. ABC1234       $50,000
+        Tier 3 — letters only, 4–8 chars e.g. MAURITIUS    $50k–$200k
+
+    Excluded letters for Tier 1 & 2: I, O, Q  (NLTA convention)
 --]]
 
 MauPlate = {}
@@ -21,117 +27,93 @@ local function hasExcluded(str)
     return false
 end
 
--- Strip leading/trailing whitespace
 local function trim(s)
     return s:match('^%s*(.-)%s*$')
 end
 
 -- ─── standard plate generation ───────────────────────────────────────────────
 
---- Generate a random standard Mauritius plate: "AB 1234"
---- Letters drawn from Config.AllowedLetters (no I, O, Q).
+--- Generate a random standard Mauritius plate: NNNNMMYY
+--- e.g. "1234OC22"  (October 2022)
 function MauPlate.GenerateStandard()
-    local pool = Config.AllowedLetters
-    local l1   = pool:sub(math.random(1, #pool), math.random(1, #pool)):sub(1, 1)
-    local l2   = pool:sub(math.random(1, #pool), math.random(1, #pool)):sub(1, 1)
-    local num  = string.format('%04d', math.random(1, 9999))
-    return l1 .. l2 .. ' ' .. num
+    local num   = string.format('%04d', math.random(1, 9999))
+    local month = Config.PlateMonths[math.random(1, #Config.PlateMonths)]
+    local year  = Config.PlateYears[math.random(1, #Config.PlateYears)]
+    return num .. month .. year   -- exactly 8 chars
 end
 
 -- ─── GTA display formatting ──────────────────────────────────────────────────
 
---- Clamp a plate string to GTA's 8-character limit, uppercase.
+--- Clamp to GTA's 8-character plate limit, uppercase.
 function MauPlate.FormatForGTA(plate)
     plate = trim(plate):upper()
     if #plate > 8 then plate = plate:sub(1, 8) end
     return plate
 end
 
--- ─── validation ──────────────────────────────────────────────────────────────
+-- ─── custom plate validation ─────────────────────────────────────────────────
 
 --[[
-    Old Series validation
-    Accepts:  1–2 uppercase letters (no I/O/Q) + optional space + 1–4 digits
-    Examples: "AB 123", "M 4", "ZZ 9999"
-    Returns:  ok (bool), err (string|nil)
+    Tier 1 — 2 letters + 4 digits
+    Examples: AB1234, MU5678
+    Returns: ok (bool), err (string|nil), displayPlate (string)
 --]]
-function MauPlate.ValidateOldSeries(plate)
-    plate = trim(plate:upper())
+function MauPlate.ValidateTier1(rawPlate)
+    local plate = rawPlate:upper():gsub('%s+', '')
 
-    -- Normalise internal spacing to a single space then remove it for pattern match
-    local noSpace = plate:gsub('%s+', '')
-
-    -- Pattern: 1–2 letters followed by 1–4 digits
-    local letters, digits = noSpace:match('^([A-Z][A-Z]?)(%d%d?%d?%d?)$')
-    if not letters or not digits or #digits < 1 then
-        return false, 'Invalid format. Expected 1–2 letters + 1–4 numbers (e.g. AB 123)'
+    local letters, digits = plate:match('^([A-Z][A-Z])(%d%d%d%d)$')
+    if not letters or not digits then
+        return false, 'Invalid format. Expected 2 letters + 4 digits  (e.g. AB1234)', nil
     end
 
     if hasExcluded(letters) then
-        return false, 'Letters I, O and Q are not permitted'
+        return false, 'Letters I, O and Q are not permitted', nil
     end
 
-    return true, nil
+    return true, nil, plate   -- 6 chars, fits fine
 end
 
 --[[
-    New Series validation
-    seriesType must be one of: '3L4N', '4L4N', '5L4N', '6L3N', 'name'
-    Returns: ok (bool), err (string|nil), displayPlate (string — GTA-safe, 8 chars max)
+    Tier 2 — 3 letters + 4 digits
+    Examples: ABC1234, MUR2024
+    Returns: ok (bool), err (string|nil), displayPlate (string)
 --]]
-function MauPlate.ValidateNewSeries(rawPlate, seriesType)
+function MauPlate.ValidateTier2(rawPlate)
     local plate = rawPlate:upper():gsub('%s+', '')
 
-    local validators = {
-        ['3L4N'] = function(p)
-            return p:match('^([A-Z][A-Z][A-Z])(%d%d%d%d)$')
-        end,
-        ['4L4N'] = function(p)
-            return p:match('^([A-Z][A-Z][A-Z][A-Z])(%d%d%d%d)$')
-        end,
-        ['5L4N'] = function(p)
-            -- 5 letters + 4 digits = 9 chars; GTA truncates to 8, so last digit drops
-            return p:match('^([A-Z][A-Z][A-Z][A-Z][A-Z])(%d%d%d%d)$')
-        end,
-        ['6L3N'] = function(p)
-            -- 6 letters + 3 digits = 9 chars; GTA truncates to 8, so last digit drops
-            return p:match('^([A-Z][A-Z][A-Z][A-Z][A-Z][A-Z])(%d%d%d)$')
-        end,
-        ['name'] = function(p)
-            if #p < 1 or #p > 8 then return nil end
-            return p:match('^([A-Z0-9]+)$')
-        end,
-    }
-
-    if not validators[seriesType] then
-        return false, 'Unknown series type: ' .. tostring(seriesType), nil
+    local letters, digits = plate:match('^([A-Z][A-Z][A-Z])(%d%d%d%d)$')
+    if not letters or not digits then
+        return false, 'Invalid format. Expected 3 letters + 4 digits  (e.g. ABC1234)', nil
     end
 
-    local match = validators[seriesType](plate)
-    if not match then
-        local hints = {
-            ['3L4N'] = 'ABC1234 (3 letters + 4 digits)',
-            ['4L4N'] = 'ABCD1234 (4 letters + 4 digits)',
-            ['5L4N'] = 'ABCDE1234 (5 letters + 4 digits, shown as 8 chars)',
-            ['6L3N'] = 'ABCDEF123 (6 letters + 3 digits, shown as 8 chars)',
-            ['name'] = 'Up to 8 alphanumeric characters',
-        }
-        return false, 'Invalid format. Expected: ' .. (hints[seriesType] or ''), nil
+    if hasExcluded(letters) then
+        return false, 'Letters I, O and Q are not permitted', nil
     end
 
-    -- Excluded-letter check (not applied to 'name' type for creative freedom)
-    if seriesType ~= 'name' then
-        local letterPart = plate:match('^([A-Z]+)')
-        if letterPart and hasExcluded(letterPart) then
-            return false, 'Letters I, O and Q are not permitted', nil
-        end
-    end
-
-    local displayPlate = MauPlate.FormatForGTA(plate)
-    return true, nil, displayPlate
+    return true, nil, plate   -- 7 chars, fits fine
 end
 
---- Get the in-game price for a new-series format key.
-function MauPlate.NewSeriesPrice(seriesType)
-    return (Config.Prices.new_series and Config.Prices.new_series[seriesType]) or 150000
+--[[
+    Tier 3 — letters only, 4–8 characters (name / vanity)
+    Examples: MAURITIUS, AFOZ, ADMIN
+    Returns: ok (bool), err (string|nil), displayPlate (string), price (number)
+--]]
+function MauPlate.ValidateTier3(rawPlate)
+    local plate = rawPlate:upper():gsub('%s+', '')
+
+    if #plate < 4 or #plate > 8 then
+        return false, 'Name plate must be 4–8 characters long', nil, nil
+    end
+
+    if not plate:match('^[A-Z]+$') then
+        return false, 'Name plate must contain letters only', nil, nil
+    end
+
+    local price = Config.Prices.tier3[#plate] or Config.Prices.tier3_default
+    return true, nil, plate, price
+end
+
+--- Price for a Tier 3 plate by its display length.
+function MauPlate.Tier3Price(displayPlate)
+    return Config.Prices.tier3[#displayPlate] or Config.Prices.tier3_default
 end

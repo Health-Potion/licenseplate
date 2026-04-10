@@ -15,22 +15,24 @@ Config.ShopBlip = {
 }
 
 -- ============================================================
---  PRICES  (in-game money, mirroring real MUR costs)
+--  PRICES  (in-game money)
 -- ============================================================
 Config.Prices = {
-    -- Old Series (Specific Registration Mark)
-    old_series = 25000,   -- full purchase
-    old_reserve = 2000,   -- non-deductible reservation (deducted first, remainder on confirm)
+    -- Tier 1: 2 letters + 4 digits  e.g. AB1234
+    tier1 = 25000,
 
-    -- New Series (Extended Personalised)
-    new_series = {
-        ['3L4N'] = 50000,   -- ABC 1234
-        ['4L4N'] = 75000,   -- ABCD1234
-        ['5L4N'] = 100000,  -- ABCDE123  (truncated to 8 chars for GTA)
-        ['6L3N'] = 125000,  -- ABCDEF12  (truncated to 8 chars for GTA)
-        ['name'] = 150000,  -- custom name up to 8 alphanumeric chars
+    -- Tier 2: 3 letters + 4 digits  e.g. ABC1234
+    tier2 = 50000,
+
+    -- Tier 3: full letters / name up to 8 chars  (price scales with length)
+    tier3 = {
+        [4] = 50000,
+        [5] = 75000,
+        [6] = 100000,
+        [7] = 150000,
+        [8] = 200000,
     },
-    new_reserve = 5000,
+    tier3_default = 200000,
 }
 
 -- 'cash' or 'bank'
@@ -40,19 +42,24 @@ Config.PaymentType = 'bank'
 Config.ShopRadius = 3.0
 
 -- ============================================================
---  STANDARD PLATE GENERATION
---  Mauritius standard format: XX NNNN  (2 letters, space, 4 digits)
---  Letters I, O, Q are excluded per NLTA convention.
+--  STANDARD PLATE FORMAT
+--  NNNNMMYY  — 4 digits + 2-letter month code + 2-digit year
+--  Example: 1234OC22  (October 2022)
+--  Years generated from this range:
 -- ============================================================
-Config.AllowedLetters = 'ABCDEFGHJKLMNPRSTUVWXYZ'
+Config.PlateYears  = { '20', '21', '22', '23', '24', '25' }
+Config.PlateMonths = {
+    'JA', 'FE', 'MR', 'AP', 'MA', 'JN',
+    'JL', 'AU', 'SE', 'OC', 'NV', 'DE',
+}
 
 -- ============================================================
---  NEW-SERIES FORMAT DESCRIPTIONS (shown in menus)
+--  PLATE STYLE INDICES  (SetVehicleNumberPlateTextIndex)
+--  GTA built-in styles — closest available to MU spec:
+--    0 = Blue on White  (front plate — white bg, dark text)
+--    1 = Yellow on Black (not ideal)
+--    2 = Yellow on Blue
+--    4 = worn blue/white
+--  True white/yellow split requires a custom stream texture.
 -- ============================================================
-Config.NewSeriesFormats = {
-    { key = '3L4N', label = '3 Letters + 4 Numbers',        example = 'ABC 1234',  price = 50000  },
-    { key = '4L4N', label = '4 Letters + 4 Numbers',        example = 'ABCD1234',  price = 75000  },
-    { key = '5L4N', label = '5 Letters + 4 Numbers',        example = 'ABCDE123',  price = 100000 },
-    { key = '6L3N', label = '6 Letters + 3 Numbers',        example = 'ABCDEF12',  price = 125000 },
-    { key = 'name', label = 'Custom Name (up to 8 chars)',  example = 'MAURITIUS', price = 150000 },
-}
+Config.PlateStyle = 0   -- applied to all vehicles (white-ish background)
