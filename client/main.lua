@@ -4,8 +4,8 @@
 
     Behaviour
     ─────────────────────────────────────────────────────────────
-    • Vehicle plate is left untouched unless a custom plate is assigned in DB.
-    • If the vehicle has a custom plate assigned, the server pushes it on entry.
+    • Every vehicle gets a deterministic MU plate on entry (same GTA plate = same MU plate).
+    • If the vehicle has a custom plate assigned in DB, the server overrides the seed plate.
     • The player MANUALLY manages plates with /plate → custom NUI.
       They can view, apply, purchase and sell plates from that HUD.
 --]]
@@ -80,8 +80,10 @@ CreateThread(function()
                 trackedVehicle = vehicle
                 local rawPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
 
-                -- Only apply a plate if a custom one is assigned in the DB.
-                -- Leave the original GTA plate untouched otherwise.
+                -- Step 1: instantly stamp a deterministic MU plate (same GTA plate = same MU plate always)
+                ApplyPlate(vehicle, MauPlate.GenerateFromSeed(rawPlate))
+
+                -- Step 2: if a custom plate is assigned in the DB, overwrite the seed plate
                 TriggerServerEvent('mu-licenseplate:server:GetVehiclePlate', rawPlate)
             end
         elseif vehicle == 0 then
