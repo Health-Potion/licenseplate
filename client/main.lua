@@ -113,7 +113,7 @@ CreateThread(function()
                 Draw3DText(Config.ShopCoords.x, Config.ShopCoords.y,
                            Config.ShopCoords.z + 1.1,
                            '[E]  NLTA – License Plate Office')
-                if IsControlJustReleased(0, 38) then OpenPlateUI() end
+                if IsControlJustReleased(0, 38) and not nuiOpen then OpenPlateUI() end
             end
         else
             Wait(1500)
@@ -124,6 +124,7 @@ end)
 -- ─── Open / close NUI ────────────────────────────────────────────────────────
 
 function OpenPlateUI()
+    if nuiOpen then return end   -- already open, ignore re-entry
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
     local vPlate  = ''
@@ -143,8 +144,9 @@ end
 local function ClosePlateUI()
     nuiOpen = false
     SetNuiFocus(false, false)
-    -- Do NOT SendNUIMessage here — JS hides itself first, then calls this
-    -- via nuiFetch('closeUI'). Sending 'close' back would create a loop.
+    -- Belt-and-suspenders: release focus again on next tick in case the first
+    -- call is dropped during a NUI callback frame.
+    Citizen.SetTimeout(50, function() SetNuiFocus(false, false) end)
 end
 
 -- ─── NUI callbacks ────────────────────────────────────────────────────────────
