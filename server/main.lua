@@ -62,9 +62,8 @@ RegisterNetEvent('mu-licenseplate:server:GetVehiclePlate', function(vehiclePlate
     )
 
     if not registered then
-        -- Unregistered / NPC / stolen vehicle — apply a random plate visually
-        -- but do NOT persist it to the database
-        TriggerClientEvent('mu-licenseplate:client:ApplyPlate', src, MauPlate.GenerateStandard())
+        -- Unregistered / NPC / stolen vehicle — leave the plate exactly as
+        -- GTA set it. No event fired, no DB write.
         return
     end
 
