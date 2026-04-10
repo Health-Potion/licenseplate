@@ -64,10 +64,8 @@ CreateThread(function()
                 trackedVehicle = vehicle
                 local rawPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
 
-                -- Step 1: instant deterministic plate
-                ApplyPlate(vehicle, MauPlate.GenerateFromSeed(rawPlate))
-
-                -- Step 2: check for custom plate override from server
+                -- Only apply a plate if a custom one is assigned in the DB.
+                -- Leave the original GTA plate untouched otherwise.
                 TriggerServerEvent('mu-licenseplate:server:GetVehiclePlate', rawPlate)
             end
         elseif vehicle == 0 then
