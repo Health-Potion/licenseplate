@@ -1,0 +1,341 @@
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: transparent;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hidden { display: none !important; }
+
+/* ── Backdrop ──────────────────────────────────────────────── */
+#app {
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Panel ─────────────────────────────────────────────────── */
+.panel {
+  background: #0d0d1a;
+  border: 1px solid #1e1e3a;
+  border-radius: 14px;
+  width: 520px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid #1e1e3a;
+  background: #10102a;
+}
+
+.header-left { display: flex; align-items: center; gap: 12px; }
+
+.mu-flag { font-size: 28px; line-height: 1; }
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e8e8f0;
+  letter-spacing: 0.3px;
+}
+
+.panel-sub {
+  font-size: 11px;
+  color: #5a5a7a;
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.close-btn {
+  background: #1e1e3a;
+  border: none;
+  color: #6a6a8a;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s;
+}
+.close-btn:hover { background: #c0392b; color: #fff; }
+
+/* ── Vehicle bar ───────────────────────────────────────────── */
+.current-vehicle-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: #0a0a18;
+  border-bottom: 1px solid #1e1e3a;
+}
+
+.bar-label { font-size: 11px; color: #5a5a7a; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.bar-plate {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #a0c4ff;
+  background: #1a1a3a;
+  padding: 3px 10px;
+  border-radius: 5px;
+  letter-spacing: 1px;
+}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #1e1e3a;
+  background: #0d0d1a;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  color: #5a5a7a;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  letter-spacing: 0.3px;
+}
+.tab-btn:hover { color: #a0a0c0; }
+.tab-btn.active { color: #6a9eff; border-bottom-color: #6a9eff; }
+
+/* ── Tab panes ─────────────────────────────────────────────── */
+.tab-pane { display: none; flex: 1; overflow-y: auto; padding: 16px; }
+.tab-pane.active { display: block; }
+
+.tab-pane::-webkit-scrollbar { width: 4px; }
+.tab-pane::-webkit-scrollbar-track { background: transparent; }
+.tab-pane::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+
+/* ── Empty state ───────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  color: #4a4a6a;
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 40px 20px;
+}
+.empty-state strong { color: #6a9eff; }
+
+/* ── Plate cards (My Plates) ───────────────────────────────── */
+#plates-list { display: flex; flex-direction: column; gap: 10px; }
+
+.plate-card {
+  background: #13132a;
+  border: 1px solid #1e1e3a;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: border-color 0.15s;
+}
+.plate-card:hover { border-color: #2e2e5e; }
+
+.plate-card-left { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+.plate-card-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #5a5a7a;
+}
+
+.plate-card-assigned {
+  font-size: 11px;
+  color: #5a5a7a;
+}
+.plate-card-assigned.active-assign { color: #2ecc71; }
+
+.plate-card-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+
+/* ── Plate visual (used in cards + purchase demo + modal) ──── */
+.plate-demo {
+  font-family: 'Courier New', monospace;
+  font-weight: 900;
+  letter-spacing: 2px;
+  border-radius: 5px;
+  border: 2px solid #222;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  user-select: none;
+  /* default / card size */
+  font-size: 15px;
+  padding: 5px 12px;
+  min-width: 100px;
+}
+.plate-demo.white  { background: #fff;    color: #111; border-color: #bbb; }
+.plate-demo.yellow { background: #FFD600; color: #111; border-color: #c8a800; }
+.plate-demo.large  { font-size: 22px; padding: 10px 22px; min-width: 160px; letter-spacing: 3px; }
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.btn {
+  border: none;
+  border-radius: 7px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  letter-spacing: 0.3px;
+}
+.btn:active { transform: scale(0.97); }
+.btn:hover { opacity: 0.88; }
+
+.btn-apply    { background: #1a6dd6; color: #fff; }
+.btn-sell     { background: #2a2a4a; color: #c0392b; border: 1px solid #3a2a2a; }
+.btn-buy      { background: #1a6dd6; color: #fff; width: 100%; margin-top: 10px; padding: 10px; font-size: 13px; }
+.btn-secondary { background: #1e1e3a; color: #a0a0c0; }
+.btn-confirm  { background: #1a6dd6; color: #fff; }
+
+/* ── Tier grid (Purchase tab) ──────────────────────────────── */
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.tier-card {
+  background: #13132a;
+  border: 1px solid #1e1e3a;
+  border-radius: 10px;
+  padding: 16px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  transition: border-color 0.15s;
+}
+.tier-card:hover { border-color: #2e2e5e; }
+
+.tier-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6a9eff;
+  background: #1a1a3a;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.tier-format {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #c0c0d8;
+  letter-spacing: 1.5px;
+}
+
+.tier-desc  { font-size: 11px; color: #5a5a7a; }
+.tier-price { font-size: 13px; font-weight: 700; color: #2ecc71; }
+
+/* ── Purchase modal ────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-box {
+  background: #0d0d1a;
+  border: 1px solid #2a2a4a;
+  border-radius: 14px;
+  padding: 28px 28px 24px;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.9);
+}
+
+.modal-title { font-size: 17px; font-weight: 700; color: #e8e8f0; }
+.modal-hint  { font-size: 12px; color: #5a5a7a; text-align: center; }
+
+.plate-input {
+  width: 100%;
+  background: #1a1a3a;
+  border: 1px solid #2a2a5a;
+  border-radius: 8px;
+  color: #e0e0f0;
+  font-family: 'Courier New', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-align: center;
+  padding: 10px;
+  text-transform: uppercase;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.plate-input:focus { border-color: #6a9eff; }
+
+.plate-preview-wrap { display: flex; justify-content: center; }
+
+.modal-price-line {
+  font-size: 13px;
+  color: #2ecc71;
+  font-weight: 700;
+  min-height: 18px;
+}
+
+.modal-actions { display: flex; gap: 10px; width: 100%; }
+.modal-actions .btn { flex: 1; padding: 10px; font-size: 13px; }
+
+/* ── Notification toast ────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1a1a3a;
+  color: #e0e0f0;
+  border: 1px solid #2a2a5a;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+  z-index: 200;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: #2ecc71; color: #2ecc71; }
+#toast.error   { border-color: #e74c3c; color: #e74c3c; }

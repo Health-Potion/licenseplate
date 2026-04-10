@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NLTA Plate Manager</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="app" class="hidden">
+
+  <!-- ── Main panel ─────────────────────────────────────────── -->
+  <div class="panel">
+
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="mu-flag">🇲🇺</span>
+        <div>
+          <div class="panel-title">NLTA Plate Manager</div>
+          <div class="panel-sub">National Land Transport Authority</div>
+        </div>
+      </div>
+      <button class="close-btn" id="closeBtn">✕</button>
+    </div>
+
+    <div class="current-vehicle-bar" id="vehicleBar">
+      <span class="bar-label">Current vehicle plate</span>
+      <span class="bar-plate" id="barPlate">—</span>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="myplates">My Plates</button>
+      <button class="tab-btn"        data-tab="purchase">Purchase</button>
+    </div>
+
+    <!-- ── My Plates tab ──────────────────────────────────── -->
+    <div class="tab-pane active" id="tab-myplates">
+      <div id="plates-container">
+        <div class="empty-state" id="platesEmpty" style="display:none">
+          You have no custom plates yet.<br>
+          Head to the <strong>Purchase</strong> tab to get one.
+        </div>
+        <div id="plates-list"></div>
+      </div>
+    </div>
+
+    <!-- ── Purchase tab ───────────────────────────────────── -->
+    <div class="tab-pane" id="tab-purchase">
+      <div class="tier-grid">
+
+        <div class="tier-card">
+          <div class="tier-badge">Tier 1</div>
+          <div class="tier-format">AA 0000</div>
+          <div class="plate-demo white">ZW 1234</div>
+          <div class="tier-desc">2 letters + 4 digits</div>
+          <div class="tier-price">$25,000</div>
+          <button class="btn btn-buy" data-tier="tier1" data-price="25000"
+                  data-hint="2 letters + 4 digits  (e.g. ZW 1234)"
+                  data-placeholder="ZW 1234">Buy</button>
+        </div>
+
+        <div class="tier-card">
+          <div class="tier-badge">Tier 2</div>
+          <div class="tier-format">AAA 0000</div>
+          <div class="plate-demo white">ZIL 1234</div>
+          <div class="tier-desc">3 letters + 4 digits</div>
+          <div class="tier-price">$50,000</div>
+          <button class="btn btn-buy" data-tier="tier2" data-price="50000"
+                  data-hint="3 letters + 4 digits  (e.g. ZIL 1234)"
+                  data-placeholder="ZIL 1234">Buy</button>
+        </div>
+
+        <div class="tier-card">
+          <div class="tier-badge">Tier 3</div>
+          <div class="tier-format">LETTERS</div>
+          <div class="plate-demo white">ISMAIL</div>
+          <div class="tier-desc">Letters only, 3–8 chars</div>
+          <div class="tier-price">$50k – $200k</div>
+          <button class="btn btn-buy" data-tier="tier3" data-price="0"
+                  data-hint="Letters only, 3–8 chars  (e.g. ISMAIL or ZILWARE)"
+                  data-placeholder="ISMAIL">Buy</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <!-- ── Purchase modal ────────────────────────────────────── -->
+  <div class="modal-overlay hidden" id="purchaseModal">
+    <div class="modal-box">
+      <div class="modal-title" id="modalTitle">Purchase Plate</div>
+      <div class="modal-hint"  id="modalHint"></div>
+
+      <input id="plateInput" class="plate-input" type="text"
+             maxlength="8" autocomplete="off" spellcheck="false" />
+
+      <div class="plate-preview-wrap">
+        <div class="plate-demo white large" id="platePreview">——</div>
+      </div>
+
+      <div class="modal-price-line" id="modalPriceLine"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+        <button class="btn btn-confirm"   id="modalConfirm">Confirm Purchase</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script src="app.js"></script>
+</body>
+</html>

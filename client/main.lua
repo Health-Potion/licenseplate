@@ -2,18 +2,20 @@
     client/main.lua
     Mauritius License Plate System — client side
 
-    Responsibilities
-    ─────────────────
-    • When player sits in driver seat, ask server for the vehicle's MU plate
-    • Server only responds with a plate if the vehicle is registered (player_vehicles)
-      or has a custom plate assigned — stolen/NPC cars are left untouched
-    • Render the NLTA shop interaction zone (3-D prompt + blip)
-    • Drive qb-menu / qb-input dialogs for purchasing & assigning plates
+    Behaviour
+    ─────────────────────────────────────────────────────────────
+    • Every vehicle gets a deterministic MU plate derived from its
+      GTA native plate (same car = same plate, no DB, no network).
+    • If the vehicle has a custom plate assigned in the DB, the server
+      pushes it to overwrite the seed plate.
+    • The player MANUALLY manages plates with /plate → custom NUI.
+      They can view, apply, purchase and sell plates from that HUD.
 --]]
 
 local QBCore = exports['qb-core']:GetCoreObject()
 
-local trackedVehicle = 0    -- handle of vehicle whose plate we last requested
+local trackedVehicle = 0
+local nuiOpen        = false
 
 -- ─── notification helper ─────────────────────────────────────────────────────
 
@@ -21,16 +23,14 @@ local function Notify(msg, ntype)
     QBCore.Functions.Notify(msg, ntype or 'primary', 4000)
 end
 
--- ─── 3-D text helper ────────────────────────────────────────────────────────
+-- ─── 3-D text helper ─────────────────────────────────────────────────────────
 
 local function Draw3DText(x, y, z, text)
     local onScreen, sx, sy = World3dToScreen2d(x, y, z)
     if not onScreen then return end
-
     local camCoords = GetGameplayCamCoords()
     local dist      = #(camCoords - vector3(x, y, z))
     local scale     = (1 / dist) * 2.2 * (1 / GetGameplayCamFov()) * 100
-
     SetTextScale(0.0, scale)
     SetTextFont(4)
     SetTextProportional(1)
@@ -41,28 +41,17 @@ local function Draw3DText(x, y, z, text)
     DrawText(sx, sy)
 end
 
--- ─── plate application ───────────────────────────────────────────────────────
+-- ─── plate application ────────────────────────────────────────────────────────
 
 local function ApplyPlate(vehicle, plateText)
     if not DoesEntityExist(vehicle) then return end
     SetVehicleNumberPlateText(vehicle, MauPlate.FormatForGTA(plateText))
-    -- Style 0 = blue-on-white (closest built-in to MU white bg + black text).
-    -- True white front / yellow rear requires a stream texture replacement.
     SetVehicleNumberPlateTextIndex(vehicle, Config.PlateStyle)
 end
 
--- ─── player vehicle tracking thread ──────────────────────────────────────────
--- Fires on every new driver-seat entry.
---
--- Step 1 (instant, client-only):
---   Derive a deterministic MU plate from the GTA native plate via hash.
---   This makes every car — including stolen/NPC — look Mauritian immediately,
---   and the same car always gets the same plate.
---
--- Step 2 (server round-trip):
---   Ask the server for the authoritative plate. The server overwrites Step 1
---   only if the vehicle is registered (player_vehicles) or has a custom plate.
---   For unregistered vehicles the server is silent → Step 1 plate stays.
+-- ─── vehicle tracking thread ──────────────────────────────────────────────────
+-- Step 1: instantly apply a deterministic MU plate from the GTA native plate.
+-- Step 2: ask the server if a custom plate is assigned — it will overwrite if so.
 
 CreateThread(function()
     while true do
@@ -75,10 +64,10 @@ CreateThread(function()
                 trackedVehicle = vehicle
                 local rawPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
 
-                -- Step 1: instant deterministic plate (same car = same plate, always)
+                -- Step 1: instant deterministic plate
                 ApplyPlate(vehicle, MauPlate.GenerateFromSeed(rawPlate))
 
-                -- Step 2: ask server for persistent/custom plate (may overwrite above)
+                -- Step 2: check for custom plate override from server
                 TriggerServerEvent('mu-licenseplate:server:GetVehiclePlate', rawPlate)
             end
         elseif vehicle == 0 then
@@ -87,7 +76,7 @@ CreateThread(function()
     end
 end)
 
--- Server sends back the plate to display
+-- Server sends back a custom plate → apply it over the seed plate
 RegisterNetEvent('mu-licenseplate:client:ApplyPlate', function(muPlate)
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
@@ -96,11 +85,10 @@ RegisterNetEvent('mu-licenseplate:client:ApplyPlate', function(muPlate)
     end
 end)
 
--- ─── NLTA shop — blip setup ──────────────────────────────────────────────────
+-- ─── NLTA shop blip ──────────────────────────────────────────────────────────
 
 CreateThread(function()
     if not Config.ShopBlip.enabled then return end
-
     local blip = AddBlipForCoord(Config.ShopCoords.x, Config.ShopCoords.y, Config.ShopCoords.z)
     SetBlipSprite(blip, Config.ShopBlip.sprite)
     SetBlipColour(blip, Config.ShopBlip.color)
@@ -111,7 +99,7 @@ CreateThread(function()
     EndTextCommandSetBlipName(blip)
 end)
 
--- ─── NLTA shop — proximity loop ──────────────────────────────────────────────
+-- ─── NLTA proximity prompt ────────────────────────────────────────────────────
 
 CreateThread(function()
     while true do
@@ -125,10 +113,7 @@ CreateThread(function()
                 Draw3DText(Config.ShopCoords.x, Config.ShopCoords.y,
                            Config.ShopCoords.z + 1.1,
                            '[E]  NLTA – License Plate Office')
-
-                if IsControlJustReleased(0, 38) then  -- E key
-                    OpenMainMenu()
-                end
+                if IsControlJustReleased(0, 38) then OpenPlateUI() end
             end
         else
             Wait(1500)
@@ -136,217 +121,119 @@ CreateThread(function()
     end
 end)
 
--- ─── MAIN MENU ───────────────────────────────────────────────────────────────
+-- ─── Open / close NUI ────────────────────────────────────────────────────────
 
-function OpenMainMenu()
+function OpenPlateUI()
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
-
-    local assignItem = {
-        header = 'Assign Plate to Vehicle',
-        txt    = 'Switch which custom plate is displayed on your current vehicle',
-        params = { event = 'mu-licenseplate:client:OpenAssign' },
-    }
-    if vehicle == 0 then
-        assignItem = {
-            header = 'Assign Plate  (enter a vehicle first)',
-            txt    = '',
-            params = { event = 'mu-licenseplate:client:NoVehicle' },
-        }
+    local vPlate  = ''
+    if vehicle ~= 0 then
+        vPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
     end
 
-    exports['qb-menu']:openMenu({
-        { header = '🇲🇺  NLTA — License Plate Office', isMenuHeader = true },
-        {
-            header = 'Tier 1 — 2 Letters + 4 Digits',
-            txt    = 'Example: ZW 1234  |  $' .. Config.Prices.tier1,
-            params = { event = 'mu-licenseplate:client:OpenTier1' },
-        },
-        {
-            header = 'Tier 2 — 3 Letters + 4 Digits',
-            txt    = 'Example: ZIL 1234  |  $' .. Config.Prices.tier2,
-            params = { event = 'mu-licenseplate:client:OpenTier2' },
-        },
-        {
-            header = 'Tier 3 — Full Name / Word  (3–8 letters)',
-            txt    = 'Example: ISMAIL or ZILWARE  |  $50k – $200k by length',
-            params = { event = 'mu-licenseplate:client:OpenTier3' },
-        },
-        {
-            header = 'My Plates',
-            txt    = 'View all your purchased custom plates',
-            params = { event = 'mu-licenseplate:client:ViewMyPlates' },
-        },
-        assignItem,
+    nuiOpen = true
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action      = 'open',
+        vehiclePlate = vPlate,
+        tier3Prices  = Config.Prices.tier3,
     })
 end
 
--- ─── TIER 1  (2L + 4D) ───────────────────────────────────────────────────────
+local function ClosePlateUI()
+    nuiOpen = false
+    SetNuiFocus(false, false)
+    SendNUIMessage({ action = 'close' })
+end
 
-RegisterNetEvent('mu-licenseplate:client:OpenTier1', function()
-    local dialog = exports['qb-input']:ShowInput({
-        header     = 'Tier 1 — AA 0000',
-        submitText = 'Purchase  ($' .. Config.Prices.tier1 .. ')',
-        inputs = {
-            {
-                type        = 'text',
-                name        = 'plate',
-                label       = '2 letters + 4 digits  (e.g. ZW 1234)',
-                required    = true,
-                placeholder = 'ZW 1234',
-            },
-        },
-    })
-    if not dialog or not dialog.plate or dialog.plate == '' then return end
-    TriggerServerEvent('mu-licenseplate:server:PurchaseTier1', dialog.plate:upper())
+-- ─── NUI callbacks ────────────────────────────────────────────────────────────
+
+-- Close button / ESC
+RegisterNUICallback('closeUI', function(_, cb)
+    ClosePlateUI()
+    cb('ok')
 end)
 
--- ─── TIER 2  (AAA 0000) ──────────────────────────────────────────────────────
-
-RegisterNetEvent('mu-licenseplate:client:OpenTier2', function()
-    local dialog = exports['qb-input']:ShowInput({
-        header     = 'Tier 2 — AAA 0000',
-        submitText = 'Purchase  ($' .. Config.Prices.tier2 .. ')',
-        inputs = {
-            {
-                type        = 'text',
-                name        = 'plate',
-                label       = '3 letters + 4 digits  (e.g. ZIL 1234)',
-                required    = true,
-                placeholder = 'ZIL 1234',
-            },
-        },
-    })
-    if not dialog or not dialog.plate or dialog.plate == '' then return end
-    TriggerServerEvent('mu-licenseplate:server:PurchaseTier2', dialog.plate:upper())
+-- NUI requests player's plates
+RegisterNUICallback('getPlates', function(_, cb)
+    TriggerServerEvent('mu-licenseplate:server:GetMyPlates')
+    cb('ok')
 end)
 
--- ─── TIER 3  (letters only, 3–8 chars) ───────────────────────────────────────
-
-RegisterNetEvent('mu-licenseplate:client:OpenTier3', function()
-    local dialog = exports['qb-input']:ShowInput({
-        header     = 'Tier 3 — Full Name / Word',
-        submitText = 'Check Price & Purchase',
-        inputs = {
-            {
-                type        = 'text',
-                name        = 'plate',
-                label       = 'Letters only, 3–8 chars  (e.g. ISMAIL or ZILWARE)',
-                required    = true,
-                placeholder = 'ISMAIL',
-            },
-        },
-    })
-    if not dialog or not dialog.plate or dialog.plate == '' then return end
-    TriggerServerEvent('mu-licenseplate:server:PurchaseTier3', dialog.plate:upper())
-end)
-
--- ─── MY PLATES ────────────────────────────────────────────────────────────────
-
-RegisterNetEvent('mu-licenseplate:client:ViewMyPlates', function()
-    TriggerServerEvent('mu-licenseplate:server:GetMyPlates', false)
-end)
-
+-- Server responds with plates → forward to NUI
 RegisterNetEvent('mu-licenseplate:client:ShowMyPlates', function(plates)
-    if not plates or #plates == 0 then
-        Notify('You have no custom plates yet.', 'primary')
-        return
+    if nuiOpen then
+        SendNUIMessage({ action = 'showPlates', plates = plates })
     end
-
-    local items = { { header = 'My Custom Plates', isMenuHeader = true } }
-    for _, p in ipairs(plates) do
-        local assigned = (p.assigned_vehicle and p.assigned_vehicle ~= 'UNASSIGNED')
-                         and p.assigned_vehicle or 'Not assigned'
-        table.insert(items, {
-            header = p.mu_plate,
-            txt    = 'Type: ' .. p.plate_type .. '  |  Assigned to: ' .. assigned,
-            params = { isMenuHeader = false },
-        })
-    end
-
-    exports['qb-menu']:openMenu(items)
 end)
 
--- ─── ASSIGN PLATE ─────────────────────────────────────────────────────────────
-
-RegisterNetEvent('mu-licenseplate:client:OpenAssign', function()
+-- NUI: apply a plate to current vehicle
+RegisterNUICallback('applyPlate', function(data, cb)
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
-
     if vehicle == 0 or GetPedInVehicleSeat(vehicle, -1) ~= ped then
-        Notify('You must be in the driver seat to assign a plate.', 'error')
+        SendNUIMessage({ action = 'notify', msg = 'You must be in the driver seat.', ntype = 'error' })
+        cb('error')
         return
     end
-
-    TriggerServerEvent('mu-licenseplate:server:GetMyPlates', true)
+    local vehiclePlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
+    TriggerServerEvent('mu-licenseplate:server:AssignPlate', data.muPlate, vehiclePlate)
+    cb('ok')
 end)
 
-RegisterNetEvent('mu-licenseplate:client:ShowAssignMenu', function(plates)
-    if not plates or #plates == 0 then
-        Notify('You have no custom plates to assign.', 'primary')
-        return
+-- NUI: purchase plate
+RegisterNUICallback('purchasePlate', function(data, cb)
+    local tier  = data.tier
+    local plate = (data.plate or ''):upper()
+
+    if tier == 'tier1' then
+        TriggerServerEvent('mu-licenseplate:server:PurchaseTier1', plate)
+    elseif tier == 'tier2' then
+        TriggerServerEvent('mu-licenseplate:server:PurchaseTier2', plate)
+    elseif tier == 'tier3' then
+        TriggerServerEvent('mu-licenseplate:server:PurchaseTier3', plate)
     end
-
-    local ped            = PlayerPedId()
-    local vehicle        = GetVehiclePedIsIn(ped, false)
-    if vehicle == 0 then
-        Notify('You are no longer in a vehicle.', 'error')
-        return
-    end
-    local vehiclePlate   = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
-
-    local items = { { header = 'Assign Plate to ' .. vehiclePlate, isMenuHeader = true } }
-    for _, p in ipairs(plates) do
-        table.insert(items, {
-            header = p.mu_plate,
-            txt    = 'Type: ' .. p.plate_type,
-            params = {
-                event = 'mu-licenseplate:client:ConfirmAssign',
-                args  = { muPlate = p.mu_plate, vehiclePlate = vehiclePlate },
-            },
-        })
-    end
-
-    exports['qb-menu']:openMenu(items)
+    cb('ok')
 end)
 
-RegisterNetEvent('mu-licenseplate:client:ConfirmAssign', function(data)
-    TriggerServerEvent('mu-licenseplate:server:AssignPlate', data.muPlate, data.vehiclePlate)
+-- NUI: sell plate
+RegisterNUICallback('sellPlate', function(data, cb)
+    TriggerServerEvent('mu-licenseplate:server:SellPlate', data.muPlate)
+    cb('ok')
 end)
 
--- ─── misc ────────────────────────────────────────────────────────────────────
-
-RegisterNetEvent('mu-licenseplate:client:NoVehicle', function()
-    Notify('Enter a vehicle first.', 'error')
-end)
-
--- Server-originated notifications
+-- Server notifies client → forward to NUI or show as notification
 RegisterNetEvent('mu-licenseplate:client:Notify', function(msg, ntype)
-    Notify(msg, ntype)
+    if nuiOpen then
+        SendNUIMessage({ action = 'notify', msg = msg, ntype = ntype })
+    else
+        Notify(msg, ntype)
+    end
 end)
 
--- Open the NLTA office menu from chat
-RegisterCommand('plateoffice', function()
-    OpenMainMenu()
-end, false)
+-- After purchase, server tells client to refresh the plate list in the NUI
+RegisterNetEvent('mu-licenseplate:client:PurchaseSuccess', function(plate)
+    if nuiOpen then
+        SendNUIMessage({ action = 'purchaseSuccess', plate = plate })
+    end
+end)
 
--- ─── /testplate — quick testing command ──────────────────────────────────────
--- Shows the plate currently displayed on your vehicle and confirms the
--- resource is running. Also forces a re-request from the server.
-RegisterCommand('testplate', function()
+-- After assign, re-apply plate on the vehicle immediately
+RegisterNetEvent('mu-licenseplate:client:AssignSuccess', function(muPlate)
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
-
-    if vehicle == 0 then
-        Notify('Get in a vehicle first, then run /testplate.', 'error')
-        return
+    if vehicle ~= 0 and DoesEntityExist(vehicle) then
+        ApplyPlate(vehicle, muPlate)
     end
-
-    local displayed = GetVehicleNumberPlateText(vehicle)
-    Notify('Current plate: [' .. displayed .. ']  — requesting refresh…', 'primary')
-
-    -- Force a fresh DB lookup so you can confirm server <-> client round-trip
-    if GetPedInVehicleSeat(vehicle, -1) == ped then
-        trackedVehicle = 0   -- reset so the tracking thread fires again
+    if nuiOpen then
+        SendNUIMessage({ action = 'notify', msg = 'Plate ' .. muPlate .. ' applied!', ntype = 'success' })
+        -- Refresh list so assigned status updates
+        TriggerServerEvent('mu-licenseplate:server:GetMyPlates')
     end
+end)
+
+-- ─── /plate command ───────────────────────────────────────────────────────────
+
+RegisterCommand('plate', function()
+    if nuiOpen then ClosePlateUI() else OpenPlateUI() end
 end, false)

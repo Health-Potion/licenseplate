@@ -6,7 +6,6 @@ description 'Mauritius License Plate System for QBCore — Standard + NLTA Custo
 version     '1.0.0'
 author      'mu-licenseplate'
 
--- Required: qb-core, oxmysql, qb-menu, qb-input
 dependencies {
     'qb-core',
     'oxmysql',
@@ -24,6 +23,14 @@ client_scripts {
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/main.lua',
+}
+
+ui_page 'html/index.html'
+
+files {
+    'html/index.html',
+    'html/style.css',
+    'html/app.js',
 }
 
 lua54 'yes'
