@@ -20,17 +20,15 @@ window.addEventListener('message', ({ data }) => {
       break;
     case 'purchaseSuccess':
       toast('Plate ' + data.plate + ' purchased!', 'success');
-      // Re-fetch plates so the new one appears
       nuiFetch('getPlates', {});
       showTab('myplates');
-      break;
-    case 'close':
-      closeUI();
       break;
   }
 });
 
 // ── Open / close ────────────────────────────────────────────
+let isOpen = false;
+
 function openUI(vehiclePlate, prices) {
   tier3Prices = prices;
   currentVehiclePlate = vehiclePlate || null;
@@ -39,13 +37,17 @@ function openUI(vehiclePlate, prices) {
     currentVehiclePlate || '— not in vehicle —';
 
   document.getElementById('app').classList.remove('hidden');
+  isOpen = true;
   showTab('myplates');
   nuiFetch('getPlates', {});
 }
 
 function closeUI() {
+  if (!isOpen) return;   // prevent double-fire / loop
+  isOpen = false;
   document.getElementById('app').classList.add('hidden');
-  nuiFetch('closeUI', {});
+  document.getElementById('purchaseModal').classList.add('hidden');
+  nuiFetch('closeUI', {});  // tells Lua to release SetNuiFocus
 }
 
 document.getElementById('closeBtn').addEventListener('click', closeUI);

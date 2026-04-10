@@ -143,7 +143,8 @@ end
 local function ClosePlateUI()
     nuiOpen = false
     SetNuiFocus(false, false)
-    SendNUIMessage({ action = 'close' })
+    -- Do NOT SendNUIMessage here — JS hides itself first, then calls this
+    -- via nuiFetch('closeUI'). Sending 'close' back would create a loop.
 end
 
 -- ─── NUI callbacks ────────────────────────────────────────────────────────────
