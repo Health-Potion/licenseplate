@@ -20,7 +20,7 @@ local function Notify(src, msg, ntype)
 end
 
 local function HasMoney(Player, amount)
-    return Player.PlayerData.money[Config.PaymentType] >= amount
+    return Player.Functions.GetMoney(Config.PaymentType) >= amount
 end
 
 local function TakeMoney(Player, amount, reason)
@@ -69,9 +69,7 @@ RegisterNetEvent('mu-licenseplate:server:GetMyPlates', function()
         'SELECT mu_plate, plate_type, assigned_vehicle, purchased_price FROM mu_custom_plates WHERE citizenid = ?',
         { Player.PlayerData.citizenid }
     )
-    local money = Player.PlayerData.money
-    if type(money) == 'string' then money = json.decode(money) end
-    local balance = (type(money) == 'table' and money[Config.PaymentType]) or 0
+    local balance = Player.Functions.GetMoney(Config.PaymentType) or 0
     TriggerClientEvent('mu-licenseplate:client:ShowMyPlates', src, plates, balance)
 end)
 
@@ -240,8 +238,6 @@ RegisterNetEvent('mu-licenseplate:server:SellPlate', function(muPlate)
         'SELECT mu_plate, plate_type, assigned_vehicle, purchased_price FROM mu_custom_plates WHERE citizenid = ?',
         { citizenid }
     )
-    local money = Player and Player.PlayerData.money or {}
-    if type(money) == 'string' then money = json.decode(money) end
-    local newBalance = (type(money) == 'table' and money[Config.PaymentType]) or 0
+    local newBalance = (Player and Player.Functions.GetMoney(Config.PaymentType)) or 0
     TriggerClientEvent('mu-licenseplate:client:ShowMyPlates', src, plates, newBalance)
 end)
