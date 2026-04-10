@@ -40,15 +40,16 @@ Config.ShopRadius = 3.0
 
 -- ============================================================
 --  STANDARD PLATE GENERATION
---  Format: NNNN MON  (4 digits + space + 3-letter month)
---  Exactly 8 characters — fits GTA's plate limit.
---  Year is tracked in the generator but omitted from display.
---  Example: 3456 OCT
+--  Format: NNNMONYR  (3 digits + 3-letter month + 2-digit year)
+--  Exactly 8 characters, no spaces — fits GTA's plate limit.
+--  Example: 345OCT23
 -- ============================================================
 Config.PlateMonths = {
     'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
     'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
 }
+
+Config.PlateYears = { '20', '21', '22', '23', '24', '25' }
 
 -- ============================================================
 --  PLATE STYLE  (SetVehicleNumberPlateTextIndex)
