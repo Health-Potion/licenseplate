@@ -49,12 +49,26 @@ RegisterNetEvent('mu-licenseplate:server:GetVehiclePlate', function(vehiclePlate
 
     vehiclePlate = vehiclePlate:upper():gsub('%s+', '')
 
+    -- 1. Already has a Mauritius plate mapped (owned vehicle) — use it
     local row = MySQL.single.await('SELECT mu_plate FROM mu_plate_map WHERE vehicle_plate = ?', { vehiclePlate })
     if row then
         TriggerClientEvent('mu-licenseplate:client:ApplyPlate', src, row.mu_plate)
         return
     end
 
+    -- 2. Check if this vehicle is registered to any player in QBCore
+    local registered = MySQL.scalar.await(
+        'SELECT 1 FROM player_vehicles WHERE plate = ?', { vehiclePlate }
+    )
+
+    if not registered then
+        -- Unregistered / NPC / stolen vehicle — apply a random plate visually
+        -- but do NOT persist it to the database
+        TriggerClientEvent('mu-licenseplate:client:ApplyPlate', src, MauPlate.GenerateStandard())
+        return
+    end
+
+    -- 3. Registered vehicle without a MU plate yet — generate and persist one
     local newPlate = GenerateUniquePlate()
     MySQL.insert.await(
         'INSERT INTO mu_plate_map (vehicle_plate, mu_plate, citizenid) VALUES (?, ?, ?)',
