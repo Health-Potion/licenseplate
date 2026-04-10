@@ -287,7 +287,7 @@ function toast(msg, type = 'info') {
 
 // ── NUI → Lua fetch ──────────────────────────────────────────
 function nuiFetch(endpoint, data) {
-  return fetch(`https://mu-licenseplate/${endpoint}`, {
+  return fetch(`https://licenseplate/${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
