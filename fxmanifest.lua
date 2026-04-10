@@ -1,7 +1,7 @@
 fx_version 'cerulean'
 game 'gta5'
 
-name        'mu-licenseplate'
+name        'licenseplate'
 description 'Mauritius License Plate System for QBCore — Standard + NLTA Custom Plates'
 version     '1.0.0'
 author      'mu-licenseplate'
