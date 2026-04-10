@@ -52,11 +52,17 @@ local function ApplyPlate(vehicle, plateText)
 end
 
 -- ─── player vehicle tracking thread ──────────────────────────────────────────
--- Fires a server request once per new driver-seat entry.
--- The server decides whether to apply a plate:
---   • Registered vehicle  → standard MU plate (generated + persisted on first drive)
---   • Custom plate assigned → that custom plate
---   • Stolen / NPC vehicle  → no response, plate left unchanged
+-- Fires on every new driver-seat entry.
+--
+-- Step 1 (instant, client-only):
+--   Derive a deterministic MU plate from the GTA native plate via hash.
+--   This makes every car — including stolen/NPC — look Mauritian immediately,
+--   and the same car always gets the same plate.
+--
+-- Step 2 (server round-trip):
+--   Ask the server for the authoritative plate. The server overwrites Step 1
+--   only if the vehicle is registered (player_vehicles) or has a custom plate.
+--   For unregistered vehicles the server is silent → Step 1 plate stays.
 
 CreateThread(function()
     while true do
@@ -65,10 +71,14 @@ CreateThread(function()
         local vehicle = GetVehiclePedIsIn(ped, false)
 
         if vehicle ~= 0 and vehicle ~= trackedVehicle then
-            -- Only care about the driver seat (-1 = driver)
             if GetPedInVehicleSeat(vehicle, -1) == ped then
                 trackedVehicle = vehicle
                 local rawPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
+
+                -- Step 1: instant deterministic plate (same car = same plate, always)
+                ApplyPlate(vehicle, MauPlate.GenerateFromSeed(rawPlate))
+
+                -- Step 2: ask server for persistent/custom plate (may overwrite above)
                 TriggerServerEvent('mu-licenseplate:server:GetVehiclePlate', rawPlate)
             end
         elseif vehicle == 0 then

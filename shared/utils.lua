@@ -24,14 +24,30 @@ end
 
 -- ─── standard plate generation ───────────────────────────────────────────────
 
---- Returns a plate in "NNNNMMYY" format, e.g. "5026JL20"  (exactly 8 chars).
---- 4-digit number + 2-letter month code + 2-digit year, no spaces.
---- Matches real Mauritius sequential plate format.
+--- Returns a random plate in "NNNNMMYY" format, e.g. "5026JL20" (8 chars).
+--- Used when generating a new persistent plate for a registered vehicle.
 function MauPlate.GenerateStandard()
     local num   = string.format('%04d', math.random(1, 9999))
     local month = Config.PlateMonths[math.random(1, #Config.PlateMonths)]
     local year  = Config.PlateYears[math.random(1, #Config.PlateYears)]
     return num .. month .. year   -- 4 + 2 + 2 = 8 chars exactly
+end
+
+--- Derives a deterministic Mauritius plate from a GTA native plate string.
+--- The same input always produces the same output — no DB, no randomness.
+--- Used for stolen / NPC vehicles so the plate looks Mauritian but never
+--- changes between sessions.
+function MauPlate.GenerateFromSeed(gtaPlate)
+    -- Simple polynomial hash of the plate characters
+    local hash = 5381
+    for i = 1, #gtaPlate do
+        hash = (hash * 33 + string.byte(gtaPlate, i)) % 2147483647
+    end
+
+    local num   = string.format('%04d', (hash % 9999) + 1)
+    local month = Config.PlateMonths[(hash % #Config.PlateMonths) + 1]
+    local year  = Config.PlateYears[(math.floor(hash / #Config.PlateMonths) % #Config.PlateYears) + 1]
+    return num .. month .. year
 end
 
 -- ─── GTA display formatting ──────────────────────────────────────────────────
