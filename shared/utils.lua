@@ -3,15 +3,15 @@
     Mauritius License Plate — shared utilities (client + server)
 
     ┌──────────────────────────────────────────────────────────────┐
-    │  Standard  │  NNNMONYR   │  345OCT23   │  8 chars  │  auto  │
+    │  Standard  │  NNNNMMYY   │  5026JL20   │  8 chars  │  auto  │
     │  Tier 1    │  AA 0000    │  ZW 1234    │  7 chars  │  $25k  │
     │  Tier 2    │  AAA 0000   │  ZIL 1234   │  8 chars  │  $50k  │
     │  Tier 3    │  letters    │  ISMAIL     │  3–8 chr  │  var   │
     └──────────────────────────────────────────────────────────────┘
 
     GTA5 plate text limit: 8 characters.
-    Standard uses 3-digit sequential number (not 4) so the full
-    NNN + MON + YY fits in 8 chars with no spaces: e.g. 345OCT23.
+    Standard: 4 digits + 2-letter month code + 2-digit year = 8 chars.
+    2-letter month codes match real Mauritius plates (JL=July, OC=Oct…)
 --]]
 
 MauPlate = {}
@@ -24,13 +24,14 @@ end
 
 -- ─── standard plate generation ───────────────────────────────────────────────
 
---- Returns a plate in "NNNMONYR" format, e.g. "345OCT23"  (exactly 8 chars).
---- 3-digit sequential number + 3-letter month + 2-digit year, no spaces.
+--- Returns a plate in "NNNNMMYY" format, e.g. "5026JL20"  (exactly 8 chars).
+--- 4-digit number + 2-letter month code + 2-digit year, no spaces.
+--- Matches real Mauritius sequential plate format.
 function MauPlate.GenerateStandard()
-    local num   = string.format('%03d', math.random(1, 999))
+    local num   = string.format('%04d', math.random(1, 9999))
     local month = Config.PlateMonths[math.random(1, #Config.PlateMonths)]
     local year  = Config.PlateYears[math.random(1, #Config.PlateYears)]
-    return num .. month .. year   -- 3 + 3 + 2 = 8 chars exactly
+    return num .. month .. year   -- 4 + 2 + 2 = 8 chars exactly
 end
 
 -- ─── GTA display formatting ──────────────────────────────────────────────────

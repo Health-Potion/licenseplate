@@ -40,13 +40,14 @@ Config.ShopRadius = 3.0
 
 -- ============================================================
 --  STANDARD PLATE GENERATION
---  Format: NNNMONYR  (3 digits + 3-letter month + 2-digit year)
+--  Format: NNNNMMYY  (4 digits + 2-letter month code + 2-digit year)
 --  Exactly 8 characters, no spaces — fits GTA's plate limit.
---  Example: 345OCT23
+--  Example: 5026JL20  (July 2020), 7746OC20 (October 2020)
+--  2-letter codes match real Mauritius plates (JL=July, OC=Oct, NV=Nov…)
 -- ============================================================
 Config.PlateMonths = {
-    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+    'JA', 'FE', 'MR', 'AP', 'MA', 'JN',
+    'JL', 'AU', 'SE', 'OC', 'NV', 'DE',
 }
 
 Config.PlateYears = { '20', '21', '22', '23', '24', '25' }
