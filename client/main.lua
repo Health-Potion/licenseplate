@@ -206,7 +206,11 @@ end
 local function ClosePlateUI()
     nuiOpen = false
     SetNuiFocus(false, false)
-    Citizen.SetTimeout(50, function() SetNuiFocus(false, false) end)
+    SetNuiFocusKeepInput(false)
+    Citizen.SetTimeout(50, function()
+        SetNuiFocus(false, false)
+        SetNuiFocusKeepInput(false)
+    end)
 end
 
 -- ─── Lua-side ESC fallback ────────────────────────────────────────────────────
