@@ -4,16 +4,22 @@
 
     Behaviour
     ─────────────────────────────────────────────────────────────
-    • Every vehicle gets a deterministic MU plate on entry (same GTA plate = same MU plate).
-    • If the vehicle has a custom plate assigned in DB, the server overrides the seed plate.
+    • All nearby vehicles are stamped with a deterministic MU plate
+      (NNNNMMYY) based on their original GTA plate, before the player
+      ever enters them.
+    • If a vehicle has a custom plate assigned in the DB, the server
+      overrides the seed plate on entry.
     • The player MANUALLY manages plates with /plate → custom NUI.
-      They can view, apply, purchase and sell plates from that HUD.
 --]]
 
 local QBCore = exports['qb-core']:GetCoreObject()
 
 local trackedVehicle = 0
 local nuiOpen        = false
+
+-- originalPlates[vehicle_handle] = original GTA plate string
+-- Needed so DB lookups always use the real GTA plate, not the stamped MU plate.
+local originalPlates = {}
 
 -- ─── notification helper ─────────────────────────────────────────────────────
 
@@ -36,7 +42,7 @@ local function PushBalance()
     end
 end
 
--- Push updated balance to NUI whenever QBCore updates player data (e.g. after purchase)
+-- Push updated balance to NUI whenever QBCore updates player data
 AddEventHandler('QBCore:Client:SetPlayerData', function()
     PushBalance()
 end)
@@ -67,7 +73,40 @@ local function ApplyPlate(vehicle, plateText)
     SetVehicleNumberPlateTextIndex(vehicle, Config.PlateStyle)
 end
 
--- ─── vehicle tracking thread ──────────────────────────────────────────────────
+-- ─── world stamp thread ───────────────────────────────────────────────────────
+-- Stamps all nearby vehicles with a deterministic MU plate so they look
+-- correct before the player ever enters them.
+
+CreateThread(function()
+    while true do
+        Wait(1000)
+        local ped = PlayerPedId()
+        local pos = GetEntityCoords(ped)
+
+        for _, vehicle in ipairs(GetGamePool('CVehicle')) do
+            if DoesEntityExist(vehicle) and not originalPlates[vehicle] then
+                local vpos = GetEntityCoords(vehicle)
+                if #(pos - vpos) < 150.0 then
+                    -- Read and save the original GTA plate before we overwrite it
+                    local rawPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
+                    originalPlates[vehicle] = rawPlate
+                    ApplyPlate(vehicle, MauPlate.GenerateFromSeed(rawPlate))
+                end
+            end
+        end
+
+        -- Clean up handles for despawned vehicles
+        for vehicle in pairs(originalPlates) do
+            if not DoesEntityExist(vehicle) then
+                originalPlates[vehicle] = nil
+            end
+        end
+    end
+end)
+
+-- ─── vehicle entry tracking ───────────────────────────────────────────────────
+-- When the player enters a vehicle, check the DB for a custom plate override.
+-- Always use the saved original GTA plate for the DB lookup.
 
 CreateThread(function()
     while true do
@@ -78,12 +117,17 @@ CreateThread(function()
         if vehicle ~= 0 and vehicle ~= trackedVehicle then
             if GetPedInVehicleSeat(vehicle, -1) == ped then
                 trackedVehicle = vehicle
-                local rawPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
 
-                -- Step 1: instantly stamp a deterministic MU plate (same GTA plate = same MU plate always)
-                ApplyPlate(vehicle, MauPlate.GenerateFromSeed(rawPlate))
+                -- Use the original GTA plate (saved before world stamp) for the DB lookup.
+                -- If the world stamp thread hasn't run yet, read it now and stamp immediately.
+                local rawPlate = originalPlates[vehicle]
+                if not rawPlate then
+                    rawPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
+                    originalPlates[vehicle] = rawPlate
+                    ApplyPlate(vehicle, MauPlate.GenerateFromSeed(rawPlate))
+                end
 
-                -- Step 2: if a custom plate is assigned in the DB, overwrite the seed plate
+                -- Ask server if a custom plate is assigned; it will overwrite if so
                 TriggerServerEvent('mu-licenseplate:server:GetVehiclePlate', rawPlate)
             end
         elseif vehicle == 0 then
@@ -92,7 +136,7 @@ CreateThread(function()
     end
 end)
 
--- Server sends back a custom plate → apply it over the GTA plate
+-- Server sends back a custom plate → apply it over the seed plate
 RegisterNetEvent('mu-licenseplate:client:ApplyPlate', function(muPlate)
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
@@ -140,12 +184,13 @@ end)
 -- ─── Open / close NUI ────────────────────────────────────────────────────────
 
 function OpenPlateUI()
-    if nuiOpen then return end   -- already open, ignore re-entry
+    if nuiOpen then return end
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
     local vPlate  = ''
     if vehicle ~= 0 then
-        vPlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
+        -- Show the original GTA plate in the vehicle bar (used for DB operations)
+        vPlate = originalPlates[vehicle] or GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
     end
 
     nuiOpen = true
@@ -154,7 +199,7 @@ function OpenPlateUI()
         action       = 'open',
         vehiclePlate = vPlate,
         tier3Prices  = Config.Prices.tier3,
-        balance      = GetBalance(),   -- send balance immediately on open
+        balance      = GetBalance(),
     })
 end
 
@@ -165,8 +210,6 @@ local function ClosePlateUI()
 end
 
 -- ─── Lua-side ESC fallback ────────────────────────────────────────────────────
--- If the JS→Lua nuiFetch ever fails, this thread catches ESC and forces close.
--- INPUT_FRONTEND_CANCEL (200) fires even while NUI has focus.
 
 CreateThread(function()
     while true do
@@ -184,20 +227,17 @@ end)
 
 -- ─── NUI callbacks ────────────────────────────────────────────────────────────
 
--- Close button / ESC (from JS)
 RegisterNUICallback('closeUI', function(_, cb)
     ClosePlateUI()
     cb('ok')
 end)
 
--- NUI requests player's plates; balance is now pushed from client side
 RegisterNUICallback('getPlates', function(_, cb)
     TriggerServerEvent('mu-licenseplate:server:GetMyPlates')
     PushBalance()
     cb('ok')
 end)
 
--- Server responds with plates → forward to NUI (balance handled separately)
 RegisterNetEvent('mu-licenseplate:client:ShowMyPlates', function(plates)
     if nuiOpen then
         SendNUIMessage({ action = 'showPlates', plates = plates, balance = GetBalance() })
@@ -213,12 +253,12 @@ RegisterNUICallback('applyPlate', function(data, cb)
         cb('error')
         return
     end
-    local vehiclePlate = GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
+    -- Always use the original GTA plate as the DB key, not the stamped MU plate
+    local vehiclePlate = originalPlates[vehicle] or GetVehicleNumberPlateText(vehicle):upper():gsub('%s+', '')
     TriggerServerEvent('mu-licenseplate:server:AssignPlate', data.muPlate, vehiclePlate)
     cb('ok')
 end)
 
--- NUI: purchase plate
 RegisterNUICallback('purchasePlate', function(data, cb)
     local tier  = data.tier
     local plate = (data.plate or ''):upper()
@@ -233,13 +273,11 @@ RegisterNUICallback('purchasePlate', function(data, cb)
     cb('ok')
 end)
 
--- NUI: sell plate
 RegisterNUICallback('sellPlate', function(data, cb)
     TriggerServerEvent('mu-licenseplate:server:SellPlate', data.muPlate)
     cb('ok')
 end)
 
--- Server notifies client → forward to NUI or show as notification
 RegisterNetEvent('mu-licenseplate:client:Notify', function(msg, ntype)
     if nuiOpen then
         SendNUIMessage({ action = 'notify', msg = msg, ntype = ntype })
@@ -248,14 +286,12 @@ RegisterNetEvent('mu-licenseplate:client:Notify', function(msg, ntype)
     end
 end)
 
--- After purchase, server tells client to refresh the plate list in the NUI
 RegisterNetEvent('mu-licenseplate:client:PurchaseSuccess', function(plate)
     if nuiOpen then
         SendNUIMessage({ action = 'purchaseSuccess', plate = plate })
     end
 end)
 
--- After assign, re-apply plate on the vehicle immediately
 RegisterNetEvent('mu-licenseplate:client:AssignSuccess', function(muPlate)
     local ped     = PlayerPedId()
     local vehicle = GetVehiclePedIsIn(ped, false)
