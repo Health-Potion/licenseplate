@@ -4,16 +4,17 @@
 
     Responsibilities
     ─────────────────
-    • Detect when the local player enters the driver seat of a vehicle
-    • Ask the server for the Mauritius plate assigned to that vehicle
-    • Apply the plate text via SetVehicleNumberPlateText
+    • Apply Mauritius plates to ALL nearby streamed vehicles every few seconds
+    • For player-owned vehicles: persist via server DB lookup
+    • For world/NPC vehicles: apply a locally generated plate (ephemeral, no DB)
     • Render the NLTA shop interaction zone (3-D prompt + blip)
     • Drive qb-menu / qb-input dialogs for purchasing & assigning plates
 --]]
 
 local QBCore = exports['qb-core']:GetCoreObject()
 
-local trackedVehicle = 0   -- entity handle of the vehicle whose plate we last requested
+local trackedVehicle  = 0    -- handle of vehicle whose DB plate we last requested
+local stampedEntities = {}   -- [entityHandle] = true  — world vehicles already plated
 
 -- ─── notification helper ─────────────────────────────────────────────────────
 
@@ -49,9 +50,40 @@ local function ApplyPlate(vehicle, plateText)
     end
 end
 
--- ─── vehicle tracking thread ─────────────────────────────────────────────────
--- Fires a server request once per new driver-seat entry so we always display
--- the correct Mauritius plate (standard or custom).
+-- ─── world vehicle stamp thread ──────────────────────────────────────────────
+-- Runs every 4 seconds. Iterates all streamed vehicles and applies a local
+-- Mauritius plate to any that haven't been stamped yet.
+-- Player's own vehicle is handled separately via the DB (see thread below).
+
+CreateThread(function()
+    while true do
+        Wait(4000)
+
+        local playerPed     = PlayerPedId()
+        local playerVehicle = GetVehiclePedIsIn(playerPed, false)
+
+        -- Purge stale handles to keep the table lean
+        for handle in pairs(stampedEntities) do
+            if not DoesEntityExist(handle) then
+                stampedEntities[handle] = nil
+            end
+        end
+
+        local vehicles = GetGamePool('CVehicle')
+        for _, veh in ipairs(vehicles) do
+            -- Skip the vehicle the player is driving (DB handles that one)
+            if veh ~= playerVehicle and not stampedEntities[veh] then
+                local plate = MauPlate.GenerateStandard()
+                SetVehicleNumberPlateText(veh, plate)
+                stampedEntities[veh] = true
+            end
+        end
+    end
+end)
+
+-- ─── player vehicle tracking thread ──────────────────────────────────────────
+-- Fires a server request once per new driver-seat entry so the player's own
+-- vehicle always shows their correct Mauritius plate (standard or custom).
 
 CreateThread(function()
     while true do
@@ -313,7 +345,28 @@ RegisterNetEvent('mu-licenseplate:client:Notify', function(msg, ntype)
     Notify(msg, ntype)
 end)
 
--- Convenience command (e.g. for admins / testing)
+-- Open the NLTA office menu from chat
 RegisterCommand('plateoffice', function()
     OpenMainMenu()
+end, false)
+
+-- ─── /testplate — quick testing command ──────────────────────────────────────
+-- Shows the plate currently displayed on your vehicle and confirms the
+-- resource is running. Also forces a re-request from the server.
+RegisterCommand('testplate', function()
+    local ped     = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(ped, false)
+
+    if vehicle == 0 then
+        Notify('Get in a vehicle first, then run /testplate.', 'error')
+        return
+    end
+
+    local displayed = GetVehicleNumberPlateText(vehicle)
+    Notify('Current plate: [' .. displayed .. ']  — requesting refresh…', 'primary')
+
+    -- Force a fresh DB lookup so you can confirm server <-> client round-trip
+    if GetPedInVehicleSeat(vehicle, -1) == ped then
+        trackedVehicle = 0   -- reset so the tracking thread fires again
+    end
 end, false)
